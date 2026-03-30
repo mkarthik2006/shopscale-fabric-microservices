@@ -1,0 +1,22 @@
+# Maven
+target/
+*.log
+
+# Mac
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+.env
+
+# Node
+node_modules/
+
+# Logs
+logs/
+
+# OS
+Thumbs.db
