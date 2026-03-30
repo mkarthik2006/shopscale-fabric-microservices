@@ -4,6 +4,7 @@ import com.shopscale.common.events.OrderPlacedEvent;
 import com.shopscale.order.model.OrderEntity;
 import com.shopscale.order.model.OrderItemEmbeddable;
 import com.shopscale.order.repository.OrderRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,8 +14,13 @@ import java.util.UUID;
 
 @Service
 public class OrderService {
+
   private final OrderRepository repository;
   private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
+
+ 
+  @Value("${app.kafka.topic.order-placed}")
+  private String topic;
 
   public OrderService(OrderRepository repository, KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate) {
     this.repository = repository;
@@ -41,10 +47,14 @@ public class OrderService {
         saved.getCurrency()
     );
 
-    kafkaTemplate.send("order.placed", saved.getId().toString(), event);
+    System.out.println("🚀 Sending OrderPlacedEvent to Kafka for orderId: " + saved.getId());
+
+    kafkaTemplate.send(topic, saved.getId().toString(), event);
+
     return saved;
   }
 
   public OrderEntity getById(UUID id) { return repository.findById(id).orElseThrow(); }
+
   public List<OrderEntity> byUser(String userId) { return repository.findByUserId(userId); }
 }

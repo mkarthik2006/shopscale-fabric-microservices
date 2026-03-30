@@ -1,5 +1,34 @@
+server:
+  port: 8082
+
 spring:
   application:
     name: order-service
+
   config:
     import: optional:configserver:http://localhost:8888
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    consumer:
+      group-id: order-group
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.value.default.type: com.shopscale.common.events.InventoryInsufficientEvent
+        spring.json.trusted.packages: "*"
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+
+app:
+  kafka:
+    topic:
+      order-placed: order.placed

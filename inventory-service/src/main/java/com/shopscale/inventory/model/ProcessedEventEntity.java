@@ -8,12 +8,19 @@ import java.util.UUID;
 @Entity
 @Table(name = "processed_events")
 public class ProcessedEventEntity {
-  @Id
-  private UUID eventId;
+    @Id
+    private UUID eventId;
+    private String status; // SUCCESS or FAILED_NO_STOCK
 
-  public ProcessedEventEntity() {}
-  public ProcessedEventEntity(UUID eventId) { this.eventId = eventId; }
+    public ProcessedEventEntity() {}
 
-  public UUID getEventId() { return eventId; }
-  public void setEventId(UUID eventId) { this.eventId = eventId; }
+    public ProcessedEventEntity(UUID eventId, String status) {
+        this.eventId = eventId;
+        this.status = status;
+    }
+
+    public UUID getEventId() { return eventId; }
+    public void setEventId(UUID eventId) { this.eventId = eventId; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }
