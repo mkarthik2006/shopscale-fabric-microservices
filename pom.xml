@@ -16,7 +16,7 @@
         <module>config-server</module>
         <!-- <module>api-gateway</module> -->
         <module>product-service</module>
-        <!-- <module>order-service</module> -->
+        <module>order-service</module>
         <!-- <module>inventory-service</module> -->
         <!-- <module>notification-service</module> -->
         <!-- <module>price-service</module> -->
