@@ -4,16 +4,41 @@ server:
 spring:
   application:
     name: config-server
+  
   profiles:
-    active: native
+    # Set 'native' for local dev, but allow override via ENV for Git in Prod
+    active: ${SPRING_PROFILES_ACTIVE:native}
+
   cloud:
     config:
       server:
         native:
-          search-locations: file:/Users/karthik/Downloads/shopscale-fabric/config-repo
+          # Base directory defaults to the current root, but can be overridden
+          search-locations: ${CONFIG_REPO_PATH:file:./config-repo}
 
+  # JAVA 21 VIRTUAL THREADS (For handling hundreds of config requests)
+  threads:
+    virtual:
+      enabled: true
+
+# OBSERVABILITY & HEALTH (Enterprise Mandate)
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: "health,info,metrics,prometheus" 
+  endpoint:
+    health:
+      show-details: always
+    info:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# STRUCTURED LOGGING & TRACING
+logging:
+  level:
+    com.shopscale.config: INFO
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"

@@ -1,2 +1,48 @@
 server:
   port: 8081
+
+spring:
+  #JAVA 21 VIRTUAL THREADS (Enable for high-load CRUD)
+  threads:
+    virtual:
+      enabled: true
+
+  #DATABASE (MongoDB - Week 1 Mandate)
+  data:
+    mongodb:
+      # PORTABLE URI: Works locally and in Docker
+      uri: ${MONGODB_URI:mongodb://mongodb:27017/productdb}
+
+#OBSERVABILITY & HEALTH (Week 4 Trace/Metrics Mandate)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus" 
+  endpoint:
+    health:
+      show-details: always
+    info:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  #DISTRIBUTED TRACING (100% Trace Sampling for development)
+  tracing:
+    sampling:
+      probability: 1.0
+
+#STRUCTURED LOGGING & TRACING
+logging:
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
+  level:
+    com.shopscale.product: INFO
+
+#SERVICE DISCOVERY
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:discovery-service}:8761/eureka/
+  instance:
+    prefer-ip-address: true

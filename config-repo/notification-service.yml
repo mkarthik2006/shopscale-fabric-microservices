@@ -1,0 +1,71 @@
+server:
+  port: 8084
+
+spring:
+  #JAVA 21 VIRTUAL THREADS (Active for all I/O heavy notification tasks)
+  threads:
+    virtual:
+      enabled: true
+
+  #KAFKA (Advanced Event-Driven Role)
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    
+    consumer:
+      group-id: notification-group
+      auto-offset-reset: earliest 
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.shopscale.common.events.OrderPlacedEvent
+
+    listener:
+      concurrency: 3
+      ack-mode: record
+
+  #EMAIL SERVICE (MailHog Configuration)
+  mail:
+    host: ${MAIL_HOST:mailhog}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
+      mail.smtp.connectiontimeout: 3000
+      mail.smtp.timeout: 3000
+
+# OBSERVABILITY & HEALTH (Week 4 Trace/Metrics Mandate)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus" 
+  endpoint:
+    health:
+      show-details: always
+    info:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+#STRUCTURED LOGGING & TRACING (Page 7 mandate)
+logging:
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
+  level:
+    com.shopscale.notification: INFO
+    org.springframework.kafka: INFO
+
+#SERVICE DISCOVERY
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:discovery-service}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10 # Aggressive check for notification cluster
+    lease-expiration-duration-in-seconds: 20

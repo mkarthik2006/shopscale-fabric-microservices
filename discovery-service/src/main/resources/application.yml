@@ -4,10 +4,46 @@ server:
 spring:
   application:
     name: discovery-service
-  config:
-    import: optional:configserver:http://localhost:8888
+
+  # JAVA 21 VIRTUAL THREADS (Active for high-scale registration surges)
+  threads:
+    virtual:
+      enabled: true
 
 eureka:
+  instance:
+    # PORTABILITY: Resolve for Docker or Local
+    hostname: ${EUREKA_HOST:localhost}
+  
+  server:
+    # RESILIENCE: Prevents accidental node evictions during glitches
+    enable-self-preservation: true
+    eviction-interval-timer-in-ms: 60000 
+    # Respond faster during cluster boot-up
+    wait-time-in-ms-when-sync-empty: 0
+
   client:
+    # Standalone server logic: Don't register with itself
     register-with-eureka: false
     fetch-registry: false
+
+# OBSERVABILITY & HEALTH (Standalone ACTUATOR)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# STRUCTURED LOGGING & TRACING
+logging:
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
+  level:
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
