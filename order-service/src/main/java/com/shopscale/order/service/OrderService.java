@@ -2,7 +2,6 @@ package com.shopscale.order.service;
 
 import com.shopscale.common.events.OrderPlacedEvent;
 import com.shopscale.order.model.OrderEntity;
-import com.shopscale.order.model.OrderItemEmbeddable;
 import com.shopscale.order.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;

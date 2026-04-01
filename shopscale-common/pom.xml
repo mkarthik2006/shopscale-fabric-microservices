@@ -5,20 +5,65 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <!--CONNECT TO ROOT -->
+    <!-- Inherit Centralized Parent BOM -->
     <parent>
         <groupId>com.shopscale</groupId>
         <artifactId>shopscale-fabric</artifactId>
         <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>shopscale-common</artifactId>
+    <name>shopscale-common</name>
+    <description>Enterprise Shared Library (DTOs, Exceptions, Wrappers)</description>
+
+    <!-- PACKAGING FIX: This is a LIBRARY, not a runnable app -->
     <packaging>jar</packaging>
 
-    <name>shopscale-common</name>
-
-    <!--NO SPRING DEPENDENCIES -->
     <dependencies>
+
+        <!-- Web (for ResponseEntity, exception handling) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Validation (DTO validation annotations) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- OpenAPI / Swagger (DTO schemas) -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.6.0</version>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
     </dependencies>
+
+    <!-- ENTERPRISE FIX: Disable executable JAR for shared module -->
+    <build>
+        <plugins>
+
+           
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
 
 </project>
