@@ -1,0 +1,64 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: cart-service
+
+  config:
+    import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
+    fail-fast: true
+    retry:
+      max-attempts: 10
+
+  threads:
+    virtual:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus"
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    root: INFO
+    com.shopscale: DEBUG
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      priceService:
+        registerHealthIndicator: true
+        failure-rate-threshold: 50
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        wait-duration-in-open-state: 10s
+
+  timelimiter:
+    instances:
+      priceService:
+        timeout-duration: 4s
+
+  retry:
+    instances:
+      priceService:
+        max-attempts: 3
+        wait-duration: 500ms
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    instance-id: ${spring.application.name}:${random.value}

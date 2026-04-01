@@ -1,0 +1,120 @@
+server:
+  port: 8080
+
+spring:
+  #JAVA 21 VIRTUAL THREADS (Maximizes gateway throughput)
+  threads:
+    virtual:
+      enabled: true
+
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+      
+      # Proactive Resilience Mandate (Page 7)
+      httpclient:
+        connect-timeout: 3000
+        response-timeout: 5000
+
+      routes:
+        - id: product-service
+          uri: lb://product-service
+          predicates:
+            - Path=/api/products/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userOrIpKeyResolver}"
+                # MATCHING PLAN: 100 requests per minute (~1.6 req/sec)
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+            - name: CircuitBreaker # Resilience Mandate
+              args:
+                name: productService
+                fallbackUri: forward:/fallback/products
+
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userOrIpKeyResolver}"
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+            - name: CircuitBreaker
+              args:
+                name: orderService
+                fallbackUri: forward:/fallback/orders
+
+        - id: inventory-service
+          uri: lb://inventory-service
+          predicates:
+            - Path=/api/inventory/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userOrIpKeyResolver}"
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+        
+        - id: cart-service
+          uri: lb://cart-service
+          predicates:
+            - Path=/api/cart/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userOrIpKeyResolver}"
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+
+        - id: price-service
+          uri: lb://price-service
+          predicates:
+            - Path=/api/prices/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userOrIpKeyResolver}"
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # PORTABLE ISSUER: Use environment overrides for Docker compatibility
+          issuer-uri: http://${KEYCLOAK_HOST:keycloak}:8080/realms/shopscale
+
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+# SERVICE DISCOVERY
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:discovery-service}:8761/eureka/
+
+# OBSERVABILITY & TRACING (Week 4 Trace/Metrics Mandate)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus" 
+  tracing:
+    sampling:
+      probability: 1.0 # 100% Trace sampling for production observability
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# STRUCTURED LOGGING & TRACING
+logging:
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"

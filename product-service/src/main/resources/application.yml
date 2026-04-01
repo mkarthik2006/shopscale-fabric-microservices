@@ -1,14 +1,52 @@
+server:
+  port: 8081
+
 spring:
   application:
     name: product-service
+  
+  # Centralized configuration import (Enterprise Mandate)
   config:
-    import: optional:configserver:http://localhost:8888
+    import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
+    fail-fast: true
+    retry:
+      max-attempts: 10
 
+  #JAVA 21 VIRTUAL THREADS (Enable for high-load CRUD)
+  threads:
+    virtual:
+      enabled: true
+
+  # DATABASE (MongoDB - Week 1 Mandate)
   data:
     mongodb:
-      uri: mongodb://localhost:27017/productdb
+      # PORTABLE URI: Works locally and in Docker
+      uri: ${MONGODB_URI:mongodb://localhost:27017/productdb}
+
+# OBSERVABILITY & TRACING (Week 4 Mandate)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus" 
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
 
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# STRUCTURED LOGGING
+logging:
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"

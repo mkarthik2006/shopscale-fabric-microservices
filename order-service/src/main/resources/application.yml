@@ -5,12 +5,37 @@ spring:
   application:
     name: order-service
 
+  # Centralized configuration import (Enterprise Mandate)
   config:
-    import: optional:configserver:http://localhost:8888
+    import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
+    fail-fast: true
+    retry:
+      max-attempts: 10
 
+  # JAVA 21 VIRTUAL THREADS (Critical for order-heavy traffic)
+  threads:
+    virtual:
+      enabled: true
+
+  # DATABASE (PostgreSQL - Mandatory Page 6)
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:orderdb}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASS:postgres}
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # KAFKA (Event-Driven Mandate)
   kafka:
-    bootstrap-servers: localhost:9092
-
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    
     consumer:
       group-id: order-group
       auto-offset-reset: latest
@@ -23,10 +48,33 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all
-      retries: 3
+      acks: all # Guarantee message delivery
+      retries: 5 # High durability for SAGA events
       properties:
-        enable.idempotence: true
+        enable.idempotence: true # Prevents duplicate events
+
+#OBSERVABILITY & HEALTH (Week 4 Mandate)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus" 
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# STRUCTURED LOGGING
+logging:
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
 
 app:
   kafka:
