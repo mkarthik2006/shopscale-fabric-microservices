@@ -2,14 +2,7 @@ server:
   port: 8080
 
 spring:
-  application:
-    name: api-gateway
-  
-  # Centralized configuration import
-  config:
-    import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
-
-  #JAVA 21 VIRTUAL THREADS (Critical for handling thousands of requests/sec)
+  #JAVA 21 VIRTUAL THREADS (Maximizes gateway throughput)
   threads:
     virtual:
       enabled: true
@@ -20,10 +13,10 @@ spring:
         locator:
           enabled: true
       
-      # Default timeout for all routes (Resilience Mandate)
+      # Proactive Resilience Mandate (Page 7)
       httpclient:
-        connect-timeout: 2000
-        response-timeout: 3000
+        connect-timeout: 3000
+        response-timeout: 5000
 
       routes:
         - id: product-service
@@ -35,9 +28,9 @@ spring:
               args:
                 key-resolver: "#{@userOrIpKeyResolver}"
                 # MATCHING PLAN: 100 requests per minute (~1.6 req/sec)
-                redis-rate-limiter.replenishRate: 2
-                redis-rate-limiter.burstCapacity: 20
-            - name: CircuitBreaker # Resilience4j (Week 4 Mandate)
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+            - name: CircuitBreaker # Resilience Mandate
               args:
                 name: productService
                 fallbackUri: forward:/fallback/products
@@ -50,8 +43,8 @@ spring:
             - name: RequestRateLimiter
               args:
                 key-resolver: "#{@userOrIpKeyResolver}"
-                redis-rate-limiter.replenishRate: 2
-                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
             - name: CircuitBreaker
               args:
                 name: orderService
@@ -62,39 +55,53 @@ spring:
           predicates:
             - Path=/api/inventory/**
           filters:
-            - name: CircuitBreaker
+            - name: RequestRateLimiter
               args:
-                name: inventoryService
-
-        # Placeholder routes for pending services
+                key-resolver: "#{@userOrIpKeyResolver}"
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+        
         - id: cart-service
           uri: lb://cart-service
           predicates:
             - Path=/api/cart/**
-        
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userOrIpKeyResolver}"
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+
         - id: price-service
           uri: lb://price-service
           predicates:
             - Path=/api/prices/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userOrIpKeyResolver}"
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
 
   security:
     oauth2:
       resourceserver:
         jwt:
-          #PORT RESOLVED: Changed port to 8180 to avoid collision with Gateway on 8080
-          issuer-uri: http://${KEYCLOAK_HOST:localhost}:8180/realms/shopscale
+          # PORTABLE ISSUER: Use environment overrides for Docker compatibility
+          issuer-uri: http://${KEYCLOAK_HOST:keycloak}:8080/realms/shopscale
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
+      host: ${REDIS_HOST:redis}
       port: ${REDIS_PORT:6379}
 
+# SERVICE DISCOVERY
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+      defaultZone: http://${EUREKA_HOST:discovery-service}:8761/eureka/
 
-#OBSERVABILITY & TRACING (Week 4 Mandate)
+# OBSERVABILITY & TRACING (Week 4 Trace/Metrics Mandate)
 management:
   endpoints:
     web:
@@ -102,15 +109,12 @@ management:
         include: "health,info,metrics,prometheus" 
   tracing:
     sampling:
-      probability: 1.0 # 100% Trace sampling for development
+      probability: 1.0 # 100% Trace sampling for production observability
   metrics:
     tags:
       application: ${spring.application.name}
 
-#STRUCTURED LOGGING
+# STRUCTURED LOGGING & TRACING
 logging:
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
-  level:
-    # gateway: DEBUG # Enable for deep routing debug
-    org.springframework.cloud.gateway: INFO

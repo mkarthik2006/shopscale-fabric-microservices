@@ -27,7 +27,7 @@ public class OrderNotificationConsumer {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
 
-            // TODO: Replace with event.getCustomerEmail() when available
+        
             message.setTo("customer@example.com");
 
             message.setSubject("Order Confirmation: " + event.orderId());

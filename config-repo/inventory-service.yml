@@ -2,26 +2,16 @@ server:
   port: 8083
 
 spring:
-  application:
-    name: inventory-service
-
-  # Centralized configuration import (Enterprise Mandate)
-  config:
-    import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
-    fail-fast: true
-    retry:
-      max-attempts: 10
-
-  #JAVA 21 VIRTUAL THREADS (Critical for inventory operations)
+  #JAVA 21 VIRTUAL THREADS (Active for all high-load stock deduction tasks)
   threads:
     virtual:
       enabled: true
 
   #DATABASE (PostgreSQL - Mandatory Page 6)
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:inventorydb}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASS:postgres}
+    url: jdbc:postgresql://${DB_HOST:postgres}:5432/${DB_NAME:inventorydb}
+    username: ${DB_USER:shopscale}
+    password: ${DB_PASS:shopscale}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -32,29 +22,30 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  #KAFKA (Event-Driven Role)
+  #KAFKA (Consumer & SAGA Producer Support)
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
 
     consumer:
       group-id: inventory-group
-      auto-offset-reset: earliest
+      auto-offset-reset: earliest 
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.value.default.type: com.shopscale.common.events.OrderPlacedEvent
         spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.shopscale.contracts.events.OrderPlacedEvent
 
+    #SAGA PRODUCER (Mandatory for reporting failures)
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      #ENTERPRISE HARDENING
       acks: all 
       retries: 5
       properties:
         enable.idempotence: true # Essential for SAGA consistency
 
-#OBSERVABILITY & HEALTH (Week 4 Mandate)
+#OBSERVABILITY & HEALTH (Week 4 Trace/Metrics Mandate)
 management:
   endpoints:
     web:
@@ -63,16 +54,27 @@ management:
   endpoint:
     health:
       show-details: always
+    info:
+      enabled: true
   metrics:
     tags:
       application: ${spring.application.name}
+  #DISTRIBUTED TRACING
+  tracing:
+    sampling:
+      probability: 1.0
 
-#STRUCTURED LOGGING
+# STRUCTURED LOGGING & TRACING
 logging:
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
+  level:
+    com.shopscale.inventory: INFO
 
+#SERVICE DISCOVERY
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+      defaultZone: http://${EUREKA_HOST:discovery-service}:8761/eureka/
+  instance:
+    prefer-ip-address: true

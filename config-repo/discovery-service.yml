@@ -1,0 +1,51 @@
+server:
+  port: 8761
+
+spring:
+  #JAVA 21 VIRTUAL THREADS (Active for all discovery requests)
+  threads:
+    virtual:
+      enabled: true
+
+eureka:
+  instance:
+    hostname: ${EUREKA_HOSTNAME:discovery-service}
+    # Dynamic health checks for service mesh accuracy
+    lease-renewal-interval-in-seconds: 15
+  
+  server:
+    #ENTERPRISE RESILIENCE (Mandate Page 6)
+    enable-self-preservation: true # Prevents network-hiccup evictions
+    eviction-interval-timer-in-ms: 60000 
+    # Respond faster during cluster boot-up
+    wait-time-in-ms-when-sync-empty: 0
+
+  client:
+    # Server logic: Don't register with itself in a single-instance setup
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+
+#OBSERVABILITY & HEALTH (Week 4 Mandate)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus" 
+  endpoint:
+    health:
+      show-details: always
+    info:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+#STRUCTURED LOGGING & TRACING
+logging:
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
+  level:
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
