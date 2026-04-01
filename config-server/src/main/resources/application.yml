@@ -4,29 +4,29 @@ server:
 spring:
   application:
     name: config-server
-  
+
   profiles:
-    # Set 'native' for local dev, but allow override via ENV for Git in Prod
+    # Native profile for local; can switch to git in prod
     active: ${SPRING_PROFILES_ACTIVE:native}
 
   cloud:
     config:
       server:
         native:
-          # Base directory defaults to the current root, but can be overridden
-          search-locations: ${CONFIG_REPO_PATH:file:./config-repo}
+          #Correct path usage (Docker will override via ENV)
+          search-locations: ${CONFIG_REPO_PATH:file:/config-repo}
 
-  # JAVA 21 VIRTUAL THREADS (For handling hundreds of config requests)
+  # JAVA 21 VIRTUAL THREADS
   threads:
     virtual:
       enabled: true
 
-# OBSERVABILITY & HEALTH (Enterprise Mandate)
+# ---------------- OBSERVABILITY ----------------
 management:
   endpoints:
     web:
       exposure:
-        include: "health,info,metrics,prometheus" 
+        include: "health,info,metrics,prometheus"
   endpoint:
     health:
       show-details: always
@@ -36,7 +36,7 @@ management:
     tags:
       application: ${spring.application.name}
 
-# STRUCTURED LOGGING & TRACING
+# ---------------- LOGGING ----------------
 logging:
   level:
     com.shopscale.config: INFO
