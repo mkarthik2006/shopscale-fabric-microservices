@@ -5,19 +5,16 @@ spring:
   application:
     name: inventory-service
 
-  # Centralized configuration import (Enterprise Mandate)
   config:
     import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
     fail-fast: true
     retry:
       max-attempts: 10
 
-  #JAVA 21 VIRTUAL THREADS (Critical for inventory operations)
   threads:
     virtual:
       enabled: true
 
-  #DATABASE (PostgreSQL - Mandatory Page 6)
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:inventorydb}
     username: ${DB_USER:postgres}
@@ -32,7 +29,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  #KAFKA (Event-Driven Role)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
@@ -48,13 +44,11 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      #ENTERPRISE HARDENING
       acks: all 
       retries: 5
       properties:
-        enable.idempotence: true # Essential for SAGA consistency
+        enable.idempotence: true
 
-#OBSERVABILITY & HEALTH (Week 4 Mandate)
 management:
   endpoints:
     web:
@@ -66,8 +60,11 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  # ⚡ FIX: Add 100% trace sampling
+  tracing:
+    sampling:
+      probability: 1.0
 
-#STRUCTURED LOGGING
 logging:
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"

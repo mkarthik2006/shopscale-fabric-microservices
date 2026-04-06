@@ -34,6 +34,12 @@
       <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
     </dependency>
 
+    <!-- ⚡ TOKEN RELAY: Passes JWT to downstream services (Week 3 Mandate) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-client</artifactId>
+    </dependency>
+
     <!-- INFRASTRUCTURE: Resilience, Discovery & Centralized Config -->
     <dependency>
       <groupId>org.springframework.cloud</groupId>
@@ -85,7 +91,7 @@
       <scope>test</scope>
     </dependency>
 
-        <!-- ⚡ RESILIENCE: Spring Cloud Circuit Breaker (Glue Dependency) -->
+    <!-- ⚡ RESILIENCE: Spring Cloud Circuit Breaker (Glue Dependency) -->
     <dependency>
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
@@ -97,12 +103,10 @@
       <artifactId>resilience4j-reactor</artifactId>
     </dependency>
 
-
   </dependencies>
 
   <build>
     <plugins>
-      <!-- Plugin overrides managed by parent -->
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>

@@ -27,13 +27,13 @@ spring:
             - name: RequestRateLimiter
               args:
                 key-resolver: "#{@userOrIpKeyResolver}"
-                # MATCHING PLAN: 100 requests per minute (~1.6 req/sec)
                 redis-rate-limiter.replenishRate: 100
                 redis-rate-limiter.burstCapacity: 100
-            - name: CircuitBreaker # Resilience Mandate
+            - name: CircuitBreaker
               args:
                 name: productService
                 fallbackUri: forward:/fallback/products
+            - TokenRelay
 
         - id: order-service
           uri: lb://order-service
@@ -49,6 +49,7 @@ spring:
               args:
                 name: orderService
                 fallbackUri: forward:/fallback/orders
+            - TokenRelay
 
         - id: inventory-service
           uri: lb://inventory-service
@@ -60,6 +61,11 @@ spring:
                 key-resolver: "#{@userOrIpKeyResolver}"
                 redis-rate-limiter.replenishRate: 100
                 redis-rate-limiter.burstCapacity: 100
+            - name: CircuitBreaker
+              args:
+                name: inventoryService
+                fallbackUri: forward:/fallback/inventory
+            - TokenRelay
         
         - id: cart-service
           uri: lb://cart-service
@@ -71,6 +77,11 @@ spring:
                 key-resolver: "#{@userOrIpKeyResolver}"
                 redis-rate-limiter.replenishRate: 100
                 redis-rate-limiter.burstCapacity: 100
+            - name: CircuitBreaker
+              args:
+                name: cartService
+                fallbackUri: forward:/fallback/cart
+            - TokenRelay
 
         - id: price-service
           uri: lb://price-service
@@ -82,12 +93,16 @@ spring:
                 key-resolver: "#{@userOrIpKeyResolver}"
                 redis-rate-limiter.replenishRate: 100
                 redis-rate-limiter.burstCapacity: 100
+            - name: CircuitBreaker
+              args:
+                name: priceService
+                fallbackUri: forward:/fallback/prices
+            - TokenRelay
 
   security:
     oauth2:
       resourceserver:
         jwt:
-          # PORTABLE ISSUER: Use environment overrides for Docker compatibility
           issuer-uri: http://${KEYCLOAK_HOST:keycloak}:8080/realms/shopscale
 
   data:
@@ -109,7 +124,7 @@ management:
         include: "health,info,metrics,prometheus" 
   tracing:
     sampling:
-      probability: 1.0 # 100% Trace sampling for production observability
+      probability: 1.0
   metrics:
     tags:
       application: ${spring.application.name}

@@ -27,6 +27,10 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  # ⚡ FIX: Add 100% trace sampling (was missing — defaulted to 10%)
+  tracing:
+    sampling:
+      probability: 1.0
 
 logging:
   level:
