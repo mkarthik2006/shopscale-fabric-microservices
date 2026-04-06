@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_GATEWAY_URL || 'http://localhost:9080',
+  // CLEAN CODE: Empty baseURL = relative paths → routed through nginx proxy
+  // Override via REACT_APP_GATEWAY_URL for local dev outside Docker
+  baseURL: process.env.REACT_APP_GATEWAY_URL || '',
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });

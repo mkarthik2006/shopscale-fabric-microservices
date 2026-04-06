@@ -1,5 +1,7 @@
 package com.shopscale.common.dto;
 
+import java.io.Serializable;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 
@@ -21,4 +23,4 @@ public record PriceResponseDto(
         @Schema(description = "Indicates whether the price was fetched 'LIVE' or 'CACHED'.", example = "LIVE")
         String priceSource
 
-) {}
+) implements Serializable {} 

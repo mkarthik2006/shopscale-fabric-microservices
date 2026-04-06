@@ -1,12 +1,12 @@
 server:
-  port: 8084
+  port: ${SERVER_PORT:8084}
 
 spring:
   application:
     name: notification-service
 
   config:
-    import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
+    import: optional:configserver:http://${CONFIG_SERVER_HOST:config-server}:8888
     fail-fast: true
     retry:
       max-attempts: 10
@@ -15,20 +15,46 @@ spring:
     virtual:
       enabled: true
 
+  # ✅ DATABASE (Idempotency Store)
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:5432/${DB_NAME:notificationdb}
+    username: ${DB_USER:shopscale}
+    password: ${DB_PASS:shopscale}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # ✅ KAFKA
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+
     consumer:
       group-id: notification-group
-      auto-offset-reset: latest
+      auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.value.default.type: com.shopscale.common.events.OrderPlacedEvent
         spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: true
 
+    # ✅ REQUIRED FOR DLQ PUBLISHING
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+    listener:
+      concurrency: 3
+      ack-mode: record
+
+  # ✅ EMAIL
   mail:
-    host: ${MAIL_HOST:localhost}
+    host: ${MAIL_HOST:mailhog}
     port: ${MAIL_PORT:1025}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
@@ -36,29 +62,43 @@ spring:
       mail.smtp.auth: false
       mail.smtp.starttls.enable: false
 
+# ✅ MERGED APP CONFIG (NO DUPLICATES)
+app:
+  kafka:
+    topic:
+      order-cancelled: order.cancelled
+    dlq:
+      max-retries: 3
+      retry-interval-ms: 1000
+
+  notification:
+    from: noreply@shopscale.dev
+
+# ✅ OBSERVABILITY
 management:
   endpoints:
     web:
       exposure:
-        include: "health,info,metrics,prometheus" 
+        include: "health,info,metrics,prometheus"
   endpoint:
     health:
       show-details: always
   metrics:
     tags:
       application: ${spring.application.name}
-  # ⚡ FIX: Add 100% trace sampling
   tracing:
     sampling:
       probability: 1.0
 
+# ✅ LOGGING
 logging:
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
 
+# ✅ SERVICE DISCOVERY
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+      defaultZone: http://${EUREKA_HOST:discovery-service}:8761/eureka/
   instance:
     prefer-ip-address: true

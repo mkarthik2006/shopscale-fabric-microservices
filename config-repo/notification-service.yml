@@ -2,12 +2,10 @@ server:
   port: 8084
 
 spring:
-  #JAVA 21 VIRTUAL THREADS (Active for all I/O heavy notification tasks)
   threads:
     virtual:
       enabled: true
 
-  #KAFKA (Advanced Event-Driven Role)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
     
@@ -19,13 +17,13 @@ spring:
       properties:
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
-        spring.json.value.default.type: com.shopscale.common.events.OrderPlacedEvent
+        # Must use Object for multiple event types on different topics
+        spring.json.value.default.type: java.lang.Object
 
     listener:
       concurrency: 3
       ack-mode: record
 
-  #EMAIL SERVICE (MailHog Configuration)
   mail:
     host: ${MAIL_HOST:mailhog}
     port: ${MAIL_PORT:1025}
@@ -37,7 +35,13 @@ spring:
       mail.smtp.connectiontimeout: 3000
       mail.smtp.timeout: 3000
 
-# OBSERVABILITY & HEALTH (Week 4 Trace/Metrics Mandate)
+app:
+  kafka:
+    topic:
+      order-cancelled: order.cancelled
+  notification:
+    from: noreply@shopscale.dev
+
 management:
   endpoints:
     web:
@@ -51,12 +55,10 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
-  # ⚡ FIX: Add 100% trace sampling (was missing — defaulted to 10%)
   tracing:
     sampling:
       probability: 1.0
 
-#STRUCTURED LOGGING & TRACING (Page 7 mandate)
 logging:
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
@@ -64,7 +66,6 @@ logging:
     com.shopscale.notification: INFO
     org.springframework.kafka: INFO
 
-#SERVICE DISCOVERY
 eureka:
   client:
     service-url:
