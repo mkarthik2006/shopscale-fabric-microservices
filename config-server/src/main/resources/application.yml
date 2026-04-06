@@ -1,19 +1,17 @@
 server:
-  port: 8888
+  port: ${SERVER_PORT:8888}
 
 spring:
   application:
     name: config-server
 
   profiles:
-    # Native profile for local; can switch to git in prod
     active: ${SPRING_PROFILES_ACTIVE:native}
 
   cloud:
     config:
       server:
         native:
-          #Correct path usage (Docker will override via ENV)
           search-locations: ${CONFIG_REPO_PATH:file:/config-repo}
 
   # JAVA 21 VIRTUAL THREADS
@@ -21,7 +19,7 @@ spring:
     virtual:
       enabled: true
 
-# ---------------- OBSERVABILITY ----------------
+# OBSERVABILITY
 management:
   endpoints:
     web:
@@ -36,7 +34,7 @@ management:
     tags:
       application: ${spring.application.name}
 
-# ---------------- LOGGING ----------------
+# LOGGING
 logging:
   level:
     com.shopscale.config: INFO

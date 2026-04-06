@@ -1,6 +1,6 @@
 services:
 
-  # ---------------- INFRA ----------------
+  # ──────────────── INFRASTRUCTURE ────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
     environment:
@@ -45,6 +45,8 @@ services:
       POSTGRES_PASSWORD: shopscale
       POSTGRES_DB: orderdb
     ports: ["5433:5432"]
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U shopscale"]
       interval: 10s
@@ -64,7 +66,7 @@ services:
     image: openzipkin/zipkin:3
     ports: ["9411:9411"]
 
-  # ⚡ KEYCLOAK — Identity Provider (Week 3 Mandate)
+  # ⚡ KEYCLOAK — Identity Provider
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     command: start-dev --import-realm
@@ -81,14 +83,14 @@ services:
       retries: 15
       start_period: 30s
 
-  # ⚡ MAILHOG — Email Testing (Notification Service)
+  # ⚡ MAILHOG — Email Testing
   mailhog:
     image: mailhog/mailhog:v1.0.1
     ports:
       - "1025:1025"   # SMTP
       - "8025:8025"   # Web UI
 
-  # ---------------- PLATFORM ----------------
+  # ──────────────── PLATFORM ────────────────
   config-server:
     build:
       context: .
@@ -96,14 +98,18 @@ services:
       args:
         SERVICE_NAME: config-server
     ports: ["8888:8888"]
+    volumes:
+      - ./config-repo:/config-repo
     environment:
       - SERVER_PORT=8888
+      - CONFIG_REPO_PATH=file:/config-repo
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
+      start_period: 30s
 
   discovery-service:
     build:
@@ -123,8 +129,9 @@ services:
       interval: 15s
       timeout: 10s
       retries: 10
+      start_period: 30s
 
-  # ---------------- SERVICES ----------------
+  # ──────────────── SERVICES ────────────────
   api-gateway:
     build:
       context: .
@@ -144,8 +151,10 @@ services:
       - SERVER_PORT=8080
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
-      - SPRING_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
       - KEYCLOAK_HOST=keycloak
+      - KEYCLOAK_PORT=8080
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   product-service:
@@ -187,9 +196,10 @@ services:
       - SERVER_PORT=8082
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/orderdb
-      - SPRING_DATASOURCE_USERNAME=shopscale
-      - SPRING_DATASOURCE_PASSWORD=shopscale
+      - DB_HOST=postgres
+      - DB_NAME=orderdb
+      - DB_USER=shopscale
+      - DB_PASS=shopscale
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
@@ -212,9 +222,10 @@ services:
       - SERVER_PORT=8083
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/orderdb
-      - SPRING_DATASOURCE_USERNAME=shopscale
-      - SPRING_DATASOURCE_PASSWORD=shopscale
+      - DB_HOST=postgres
+      - DB_NAME=inventorydb
+      - DB_USER=shopscale
+      - DB_PASS=shopscale
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
@@ -227,6 +238,8 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
       discovery-service:
         condition: service_healthy
     ports: ["9084:8084"]
@@ -236,6 +249,10 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DB_HOST=postgres
+      - DB_NAME=notificationdb
+      - DB_USER=shopscale
+      - DB_PASS=shopscale
       - MAIL_HOST=mailhog
       - MAIL_PORT=1025
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
@@ -257,7 +274,8 @@ services:
       - SERVER_PORT=8085
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
-      - SPRING_REDIS_HOST=redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   cart-service:
@@ -279,7 +297,7 @@ services:
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
-  # ⚡ REACT FRONTEND (Week 3 Mandate)
+  # ⚡ REACT FRONTEND
   frontend:
     build:
       context: ./frontend

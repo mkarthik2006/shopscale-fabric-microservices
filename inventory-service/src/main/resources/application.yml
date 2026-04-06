@@ -1,5 +1,5 @@
 server:
-  port: 8083
+  port: ${SERVER_PORT:8083}
 
 spring:
   application:
@@ -17,8 +17,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:inventorydb}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASS:postgres}
+    username: ${DB_USER:shopscale}
+    password: ${DB_PASS:shopscale}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -60,7 +60,6 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
-  # ⚡ FIX: Add 100% trace sampling
   tracing:
     sampling:
       probability: 1.0
@@ -73,3 +72,8 @@ eureka:
   client:
     service-url:
       defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+app:
+  kafka:
+    dlq:
+      max-retries: 3
+      retry-interval-ms: 1000

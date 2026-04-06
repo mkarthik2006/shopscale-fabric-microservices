@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
@@ -9,7 +9,7 @@ spring:
   config:
     import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
 
-  #JAVA 21 VIRTUAL THREADS (Critical for handling thousands of requests/sec)
+  # JAVA 21 VIRTUAL THREADS
   threads:
     virtual:
       enabled: true
@@ -34,10 +34,9 @@ spring:
             - name: RequestRateLimiter
               args:
                 key-resolver: "#{@userOrIpKeyResolver}"
-                # MATCHING PLAN: 100 requests per minute (~1.6 req/sec)
                 redis-rate-limiter.replenishRate: 2
                 redis-rate-limiter.burstCapacity: 20
-            - name: CircuitBreaker # Resilience4j (Week 4 Mandate)
+            - name: CircuitBreaker
               args:
                 name: productService
                 fallbackUri: forward:/fallback/products
@@ -66,7 +65,6 @@ spring:
               args:
                 name: inventoryService
 
-        # Placeholder routes for pending services
         - id: cart-service
           uri: lb://cart-service
           predicates:
@@ -81,9 +79,10 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          #PORT RESOLVED: Changed port to 8180 to avoid collision with Gateway on 8080
-          issuer-uri: http://${KEYCLOAK_HOST:localhost}:8180/realms/shopscale
+          # CLEAN CODE: Port externalized — local=8180 (host), Docker=8080 (internal)
+          issuer-uri: http://${KEYCLOAK_HOST:localhost}:${KEYCLOAK_PORT:8180}/realms/shopscale
 
+  # CLEAN CODE: Spring Boot 3.x uses spring.data.redis prefix
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -94,7 +93,7 @@ eureka:
     service-url:
       defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
 
-#OBSERVABILITY & TRACING (Week 4 Mandate)
+# OBSERVABILITY & TRACING
 management:
   endpoints:
     web:
@@ -102,15 +101,14 @@ management:
         include: "health,info,metrics,prometheus" 
   tracing:
     sampling:
-      probability: 1.0 # 100% Trace sampling for development
+      probability: 1.0
   metrics:
     tags:
       application: ${spring.application.name}
 
-#STRUCTURED LOGGING
+# STRUCTURED LOGGING
 logging:
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
   level:
-    # gateway: DEBUG # Enable for deep routing debug
     org.springframework.cloud.gateway: INFO

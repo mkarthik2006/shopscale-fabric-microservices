@@ -31,6 +31,9 @@ RUN --mount=type=cache,target=/root/.m2 \
 # ---------- RUN STAGE ----------
 FROM eclipse-temurin:21-jre
 
+# ENTERPRISE FIX: Install curl for Docker healthchecks
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 RUN addgroup --system spring && adduser --system --ingroup spring spring
 
 WORKDIR /app

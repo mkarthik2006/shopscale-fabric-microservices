@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import api from '../services/api';
+import axios from 'axios';
 
 const inputStyle = {
   padding: '10px', width: '100%', border: '1px solid #ddd',
@@ -19,12 +19,16 @@ function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
+      // CLEAN CODE: Keycloak URL externalized — defaults to host-accessible port for local dev
       const keycloakUrl = process.env.REACT_APP_KEYCLOAK_URL || 'http://localhost:8180';
-      const res = await api.post(
-        `${keycloakUrl}/realms/shopscale/protocol/openid-connect/token`,
+      const keycloakRealm = process.env.REACT_APP_KEYCLOAK_REALM || 'shopscale';
+      const keycloakClientId = process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'shopscale-gateway';
+
+      const res = await axios.post(
+        `${keycloakUrl}/realms/${keycloakRealm}/protocol/openid-connect/token`,
         new URLSearchParams({
           grant_type: 'password',
-          client_id: 'shopscale-gateway',
+          client_id: keycloakClientId,
           username,
           password,
         }),

@@ -2,7 +2,7 @@ server:
   port: 8080
 
 spring:
-  #JAVA 21 VIRTUAL THREADS (Maximizes gateway throughput)
+  # JAVA 21 VIRTUAL THREADS
   threads:
     virtual:
       enabled: true
@@ -13,7 +13,6 @@ spring:
         locator:
           enabled: true
       
-      # Proactive Resilience Mandate (Page 7)
       httpclient:
         connect-timeout: 3000
         response-timeout: 5000
@@ -103,8 +102,10 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://${KEYCLOAK_HOST:keycloak}:8080/realms/shopscale
+          # CLEAN CODE: Port externalized via env var
+          issuer-uri: http://${KEYCLOAK_HOST:keycloak}:${KEYCLOAK_PORT:8080}/realms/shopscale
 
+  # CLEAN CODE: Spring Boot 3.x prefix
   data:
     redis:
       host: ${REDIS_HOST:redis}
@@ -116,7 +117,7 @@ eureka:
     service-url:
       defaultZone: http://${EUREKA_HOST:discovery-service}:8761/eureka/
 
-# OBSERVABILITY & TRACING (Week 4 Trace/Metrics Mandate)
+# OBSERVABILITY & TRACING
 management:
   endpoints:
     web:
@@ -129,7 +130,7 @@ management:
     tags:
       application: ${spring.application.name}
 
-# STRUCTURED LOGGING & TRACING
+# STRUCTURED LOGGING
 logging:
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"

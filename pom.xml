@@ -84,6 +84,39 @@
                 <scope>import</scope>
             </dependency>
 
+                        <!-- Observability (Micrometer Tracing - Week 4) -->
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-tracing-bom</artifactId>
+                <version>${micrometer-tracing.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Explicitly manage Zipkin Reporter version for traceability -->
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-tracing-reporter-zipkin</artifactId>
+                <version>${micrometer-tracing.version}</version>
+            </dependency>
+
+                        <!-- Aligned Tracing Stack (Micrometer + Brave + Zipkin) -->
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-tracing-bom</artifactId>
+                <version>${micrometer-tracing.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.zipkin.reporter2</groupId>
+                <artifactId>zipkin-reporter-brave</artifactId>
+                <version>3.4.0</version> <!-- Controlled version for stability -->
+            </dependency>
+
+
+
             <!-- Lombok (Reduces boilerplate) -->
             <dependency>
                 <groupId>org.projectlombok</groupId>
@@ -94,34 +127,32 @@
         </dependencies>
     </dependencyManagement>
 
-    <!--BUILD HARDENING -->
+    <!--BUILD HARDENING — ALL plugins in pluginManagement -->
     <build>
-        <plugins>
-            <!-- 🚀 ENTERPRISE FIX: Force Fat JAR packaging cleanly for ALL 10 services! -->
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>${spring.boot.version}</version>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>repackage</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-
         <pluginManagement>
             <plugins>
+                <!-- ENTERPRISE: Fat JAR packaging for service modules only -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring.boot.version}</version>
+                    <configuration>
+                        <excludes>
+                            <exclude>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </exclude>
+                        </excludes>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
                 <!--UNIT TESTING (Surefire - MANDATORY) -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
