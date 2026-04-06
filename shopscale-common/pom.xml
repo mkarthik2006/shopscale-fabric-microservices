@@ -16,6 +16,9 @@
     <artifactId>shopscale-common</artifactId>
     <name>shopscale-common</name>
     <description>Enterprise Shared Library (DTOs, Exceptions, Wrappers)</description>
+     <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 
     <!-- PACKAGING FIX: This is a LIBRARY, not a runnable app -->
     <packaging>jar</packaging>
@@ -34,11 +37,10 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <!-- OpenAPI / Swagger (DTO schemas) -->
+        <!-- OpenAPI / Swagger (DTO schemas) — version from parent -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.6.0</version>
         </dependency>
 
         <!-- Lombok -->
@@ -53,8 +55,6 @@
     <!-- ENTERPRISE FIX: Disable executable JAR for shared module -->
     <build>
         <plugins>
-
-           
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -62,7 +62,6 @@
                     <skip>true</skip>
                 </configuration>
             </plugin>
-
         </plugins>
     </build>
 

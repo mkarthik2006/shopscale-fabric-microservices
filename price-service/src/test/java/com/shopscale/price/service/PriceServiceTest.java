@@ -28,7 +28,8 @@ class PriceServiceTest {
         assertThat(result.sku()).isEqualTo("P1");
         assertThat(result.price()).isEqualByComparingTo(new BigDecimal("199.99"));
         assertThat(result.currency()).isEqualTo("USD");
-        assertThat(result.source()).isEqualTo("LIVE"); // ✅ Contract correct
+        // FIX: PriceResponseDto record field is "priceSource", not "source"
+        assertThat(result.priceSource()).isEqualTo("LIVE");
     }
 
     @Test
@@ -64,7 +65,8 @@ class PriceServiceTest {
         PriceResponseDto result = priceService.getPrice("p2");
 
         assertThat(result.price()).isEqualByComparingTo(new BigDecimal("89.50"));
-        assertThat(result.source()).isEqualTo("LIVE");
+        // FIX: PriceResponseDto record field is "priceSource", not "source"
+        assertThat(result.priceSource()).isEqualTo("LIVE");
     }
 
     @Test

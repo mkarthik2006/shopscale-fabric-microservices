@@ -1,12 +1,15 @@
 package com.shopscale.cart.controller;
 
+import com.shopscale.common.exception.GlobalExceptionHandler;
+
 import com.shopscale.cart.service.PriceClientService;
 import com.shopscale.common.dto.PriceResponseDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.bean.MockBean;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -24,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * ✔ Section 16 — API response contract validation
  */
 @WebMvcTest(CartController.class)
+@Import(GlobalExceptionHandler.class)
 class CartControllerTest {
 
     @Autowired
@@ -48,10 +52,11 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.status").value("SUCCESS"))
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").exists())
+                // FIX: CartTotalResponseDto wraps PriceResponseDto as "priceResponse"
                 .andExpect(jsonPath("$.data.sku").value("P1"))
-                .andExpect(jsonPath("$.data.price").value(199.99))
-                .andExpect(jsonPath("$.data.currency").value("USD"))
-                .andExpect(jsonPath("$.data.priceSource").value("LIVE"))
+                .andExpect(jsonPath("$.data.priceResponse.price").value(199.99))
+                .andExpect(jsonPath("$.data.priceResponse.currency").value("USD"))
+                .andExpect(jsonPath("$.data.priceResponse.priceSource").value("LIVE"))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
@@ -68,8 +73,9 @@ class CartControllerTest {
         mockMvc.perform(get("/api/v1/cart/user-001/total")
                         .param("sku", "P1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.priceSource").value("FALLBACK"))
-                .andExpect(jsonPath("$.data.price").value(0));
+                // FIX: Correct nested path
+                .andExpect(jsonPath("$.data.priceResponse.priceSource").value("FALLBACK"))
+                .andExpect(jsonPath("$.data.priceResponse.price").value(0));
     }
 
     // ❌ FAILURE CASE (UNHANDLED ERROR)

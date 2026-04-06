@@ -12,6 +12,9 @@
   </parent>
 
   <artifactId>order-service</artifactId>
+   <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 
   <dependencies>
 
@@ -44,23 +47,6 @@
     <dependency>
       <groupId>org.springframework.kafka</groupId>
       <artifactId>spring-kafka</artifactId>
-    </dependency>
-
-    <!-- REDIS (Caching Mandate) -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-redis</artifactId>
-    </dependency>
-
-    <!-- SECURITY (MANDATORY) -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-security</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
     </dependency>
 
     <!-- VALIDATION -->
@@ -107,11 +93,10 @@
       <artifactId>resilience4j-spring-boot3</artifactId>
     </dependency>
 
-    <!-- API DOC -->
+    <!-- API DOC — version from parent -->
     <dependency>
       <groupId>org.springdoc</groupId>
       <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-      <version>2.5.0</version>
     </dependency>
 
     <!-- LOMBOK -->

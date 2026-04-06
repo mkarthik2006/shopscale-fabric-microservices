@@ -73,6 +73,12 @@
       <artifactId>micrometer-tracing-bridge-brave</artifactId>
     </dependency>
 
+    <!-- FIX: Missing Zipkin reporter for distributed tracing -->
+    <dependency>
+      <groupId>io.zipkin.reporter2</groupId>
+      <artifactId>zipkin-reporter-brave</artifactId>
+    </dependency>
+
     <!-- DEVELOPMENT TOOLS -->
     <dependency>
       <groupId>org.projectlombok</groupId>
@@ -80,7 +86,7 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- TESTING (Correctly utilizes Parent pluginManagement) -->
+    <!-- TESTING -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
@@ -96,7 +102,6 @@
 
   <build>
     <plugins>
-      <!-- Plugin overrides managed by parent -->
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>

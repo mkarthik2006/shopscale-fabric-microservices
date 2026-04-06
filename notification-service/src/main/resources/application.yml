@@ -15,7 +15,7 @@ spring:
     virtual:
       enabled: true
 
-  # ✅ DATABASE (Idempotency Store)
+  # DATABASE (Idempotency Store)
   datasource:
     url: jdbc:postgresql://${DB_HOST:postgres}:5432/${DB_NAME:notificationdb}
     username: ${DB_USER:shopscale}
@@ -30,7 +30,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  # ✅ KAFKA
+  # KAFKA
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
 
@@ -41,9 +41,10 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
-        spring.json.use.type.headers: true
+        # FIX: Must set default type since producer sends with add.type.headers=false
+        spring.json.value.default.type: com.shopscale.common.events.OrderPlacedEvent
 
-    # ✅ REQUIRED FOR DLQ PUBLISHING
+    # REQUIRED FOR DLQ PUBLISHING
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -52,7 +53,7 @@ spring:
       concurrency: 3
       ack-mode: record
 
-  # ✅ EMAIL
+  # EMAIL
   mail:
     host: ${MAIL_HOST:mailhog}
     port: ${MAIL_PORT:1025}
@@ -62,7 +63,7 @@ spring:
       mail.smtp.auth: false
       mail.smtp.starttls.enable: false
 
-# ✅ MERGED APP CONFIG (NO DUPLICATES)
+# MERGED APP CONFIG
 app:
   kafka:
     topic:
@@ -74,7 +75,7 @@ app:
   notification:
     from: noreply@shopscale.dev
 
-# ✅ OBSERVABILITY
+# OBSERVABILITY
 management:
   endpoints:
     web:
@@ -90,12 +91,12 @@ management:
     sampling:
       probability: 1.0
 
-# ✅ LOGGING
+# LOGGING
 logging:
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
 
-# ✅ SERVICE DISCOVERY
+# SERVICE DISCOVERY
 eureka:
   client:
     service-url:

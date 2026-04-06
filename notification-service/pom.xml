@@ -12,6 +12,9 @@
 
   <artifactId>notification-service</artifactId>
   <name>notification-service</name>
+   <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 
   <dependencies>
     <!-- Fabric Shared Module (Event Contracts) -->
@@ -21,7 +24,7 @@
       <version>1.0.0</version>
     </dependency>
 
-    <!-- CORE: Web, Mail & Kafka (Managed Centrally) -->
+    <!-- CORE: Web, Mail & Kafka -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
@@ -37,7 +40,7 @@
       <artifactId>spring-kafka</artifactId>
     </dependency>
 
-    <!--INFRASTRUCTURE: Service Registration & Centralized Config -->
+    <!-- INFRASTRUCTURE: Service Registration & Centralized Config -->
     <dependency>
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-config</artifactId>
@@ -48,13 +51,13 @@
       <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
     </dependency>
 
-    <!-- ⚡ RESILIENCE: Resilience4j (Harden Email Failure Retries) -->
+    <!-- RESILIENCE: Resilience4j -->
     <dependency>
       <groupId>io.github.resilience4j</groupId>
       <artifactId>resilience4j-spring-boot3</artifactId>
     </dependency>
 
-    <!-- OBSERVABILITY & MONITORING (Week 4 Mandate) -->
+    <!-- OBSERVABILITY & MONITORING -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
@@ -70,6 +73,12 @@
       <artifactId>micrometer-tracing-bridge-brave</artifactId>
     </dependency>
 
+    <!-- FIX: Missing Zipkin reporter for distributed tracing -->
+    <dependency>
+      <groupId>io.zipkin.reporter2</groupId>
+      <artifactId>zipkin-reporter-brave</artifactId>
+    </dependency>
+
     <!-- DEVELOPMENT TOOLS -->
     <dependency>
       <groupId>org.projectlombok</groupId>
@@ -77,14 +86,7 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- TESTING (Correctly utilizes Parent pluginManagement) -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
-    </dependency>
-
-        <!-- DATA: JPA + PostgreSQL for Idempotency Store -->
+    <!-- DATA: JPA + PostgreSQL for Idempotency Store -->
     <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -93,6 +95,13 @@
         <groupId>org.postgresql</groupId>
         <artifactId>postgresql</artifactId>
         <scope>runtime</scope>
+    </dependency>
+
+    <!-- TESTING -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -104,7 +113,6 @@
 
   <build>
     <plugins>
-      <!-- Configuration inherited from parent (Spring Boot Maven plugin) -->
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>

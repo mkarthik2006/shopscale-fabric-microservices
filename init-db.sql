@@ -7,3 +7,6 @@
 
 CREATE DATABASE inventorydb;
 GRANT ALL PRIVILEGES ON DATABASE inventorydb TO shopscale;
+
+CREATE DATABASE notificationdb;
+GRANT ALL PRIVILEGES ON DATABASE notificationdb TO shopscale;

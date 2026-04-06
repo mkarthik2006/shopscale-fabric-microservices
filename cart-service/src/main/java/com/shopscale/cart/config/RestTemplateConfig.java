@@ -1,6 +1,7 @@
 package com.shopscale.cart.config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -17,10 +18,15 @@ import org.springframework.web.client.RestTemplate;
 @Slf4j
 public class RestTemplateConfig {
 
-
     @Bean
     @LoadBalanced
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
+
+        // Connection Config (replaces deprecated setValidateAfterInactivity + setConnectTimeout)
+        ConnectionConfig connectionConfig = ConnectionConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(2))
+                .setValidateAfterInactivity(Timeout.ofSeconds(5))
+                .build();
 
         // Connection Pool Manager
         PoolingHttpClientConnectionManager connectionManager =
@@ -28,20 +34,17 @@ public class RestTemplateConfig {
 
         connectionManager.setMaxTotal(100);              // Max total connections
         connectionManager.setDefaultMaxPerRoute(20);     // Per service connections
+        connectionManager.setDefaultConnectionConfig(connectionConfig);
 
-        // Validate stale connections before use
-        connectionManager.setValidateAfterInactivity(Timeout.ofSeconds(5));
-
-        // Fail-Fast Timeout Configuration
+        // Fail-Fast Timeout Configuration (only response timeout here now)
         RequestConfig requestConfig = RequestConfig.custom()
-                .setConnectTimeout(Timeout.ofSeconds(2))   // Connection timeout
                 .setResponseTimeout(Timeout.ofSeconds(4))  // Read timeout
                 .build();
 
         // HTTP Client with Eviction Strategy
         CloseableHttpClient httpClient = HttpClients.custom()
                 .setConnectionManager(connectionManager)
-                .evictIdleConnections(Timeout.ofSeconds(30)) // Evict idle connections
+                .evictIdleConnections(Timeout.ofSeconds(30))
                 .setDefaultRequestConfig(requestConfig)
                 .build();
 
@@ -53,10 +56,7 @@ public class RestTemplateConfig {
         return builder
                 .requestFactory(() -> factory)
                 .additionalInterceptors((request, body, execution) -> {
-
-                    // Optional debug logging (safe for production with DEBUG level)
                     log.debug("Outgoing request: {} {}", request.getMethod(), request.getURI());
-
                     return execution.execute(request, body);
                 })
                 .build();

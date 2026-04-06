@@ -32,6 +32,7 @@ import static org.mockito.Mockito.*;
  * ✔ Section 7 — DTO contract validation
  */
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("unchecked") // Suppress RestTemplate.exchange() generic type erasure warnings
 class PriceClientServiceTest {
 
     @Mock private RestTemplate restTemplate;
@@ -39,7 +40,6 @@ class PriceClientServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Inject externalized service URL
         ReflectionTestUtils.setField(priceClientService, "priceServiceUrl", "http://price-service");
     }
 
@@ -154,12 +154,8 @@ class PriceClientServiceTest {
     @DisplayName("getPrice — triggers fallback when service is down")
     void getPrice_shouldTriggerFallbackOnException() {
 
-        when(restTemplate.exchange(
-                anyString(), eq(HttpMethod.GET), isNull(), any(ParameterizedTypeReference.class)
-        )).thenThrow(new RuntimeException("Service Down"));
-
         PriceResponseDto result =
-                priceClientService.fallbackPrice("P1", new RuntimeException());
+                priceClientService.fallbackPrice("P1", new RuntimeException("Service Down"));
 
         assertThat(result.price()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(result.priceSource()).isEqualTo("FALLBACK");
@@ -170,17 +166,13 @@ class PriceClientServiceTest {
     @DisplayName("getPrice — handles timeout from Price Service")
     void getPrice_shouldHandleTimeout() {
 
-        when(restTemplate.exchange(
-                anyString(), eq(HttpMethod.GET), isNull(), any(ParameterizedTypeReference.class)
-        )).thenThrow(new TimeoutException("Timeout"));
-
         PriceResponseDto result =
                 priceClientService.fallbackPrice("P1", new TimeoutException("Timeout"));
 
         assertThat(result.priceSource()).isEqualTo("FALLBACK");
     }
 
-    // 🔁 CONSISTENCY (CACHE-LIKE BEHAVIOR)
+    // 🔁 CONSISTENCY
     @Test
     @DisplayName("getPrice — returns consistent result for same SKU")
     void getPrice_shouldBeConsistent() {
