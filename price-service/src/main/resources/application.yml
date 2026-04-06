@@ -5,19 +5,16 @@ spring:
   application:
     name: price-service
 
-  # Centralized configuration import (Enterprise Mandate)
   config:
     import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
     fail-fast: true
     retry:
       max-attempts: 10
 
-  # JAVA 21 VIRTUAL THREADS (Critical for high-throughput microservices)
   threads:
     virtual:
       enabled: true
 
-# OBSERVABILITY & HEALTH (Week 4 Mandate / Checklist: Actuator)
 management:
   endpoints:
     web:
@@ -29,8 +26,11 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  # ⚡ FIX: Add 100% trace sampling (was missing — defaulted to 10%)
+  tracing:
+    sampling:
+      probability: 1.0
 
-# STRUCTURED LOGGING (Checklist: Distributed Tracing Correlation)
 logging:
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"

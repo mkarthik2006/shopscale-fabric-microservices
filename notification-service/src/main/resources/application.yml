@@ -5,19 +5,16 @@ spring:
   application:
     name: notification-service
 
-  # Centralized configuration import (Enterprise Mandate)
   config:
     import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
     fail-fast: true
     retry:
       max-attempts: 10
 
-  #JAVA 21 VIRTUAL THREADS (Critical for I/O heavy notification tasks)
   threads:
     virtual:
       enabled: true
 
-  #KAFKA (Consumer Role)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     
@@ -30,7 +27,6 @@ spring:
         spring.json.value.default.type: com.shopscale.common.events.OrderPlacedEvent
         spring.json.trusted.packages: "*"
 
-  # EMAIL SERVICE (Enterprise Mandate)
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
@@ -40,7 +36,6 @@ spring:
       mail.smtp.auth: false
       mail.smtp.starttls.enable: false
 
-# OBSERVABILITY & HEALTH (Week 4 Mandate)
 management:
   endpoints:
     web:
@@ -52,8 +47,11 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  # ⚡ FIX: Add 100% trace sampling
+  tracing:
+    sampling:
+      probability: 1.0
 
-# STRUCTURED LOGGING
 logging:
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"

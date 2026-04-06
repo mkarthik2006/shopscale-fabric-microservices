@@ -51,6 +51,10 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  # ⚡ FIX: Add 100% trace sampling (was missing — defaulted to 10%)
+  tracing:
+    sampling:
+      probability: 1.0
 
 #STRUCTURED LOGGING & TRACING (Page 7 mandate)
 logging:
@@ -67,5 +71,5 @@ eureka:
       defaultZone: http://${EUREKA_HOST:discovery-service}:8761/eureka/
   instance:
     prefer-ip-address: true
-    lease-renewal-interval-in-seconds: 10 # Aggressive check for notification cluster
+    lease-renewal-interval-in-seconds: 10
     lease-expiration-duration-in-seconds: 20
