@@ -8,17 +8,17 @@ spring:
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
-    
+
     consumer:
       group-id: notification-group
-      auto-offset-reset: earliest 
+      auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
-        # Must use Object for multiple event types on different topics
-        spring.json.value.default.type: java.lang.Object
+        # FIX: Was java.lang.Object — must match actual event class for deserialization
+        spring.json.value.default.type: com.shopscale.common.events.OrderPlacedEvent
 
     listener:
       concurrency: 3
@@ -46,7 +46,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: "health,info,metrics,prometheus" 
+        include: "health,info,metrics,prometheus"
   endpoint:
     health:
       show-details: always

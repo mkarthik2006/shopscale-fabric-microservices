@@ -16,11 +16,8 @@
     <artifactId>shopscale-common</artifactId>
     <name>shopscale-common</name>
     <description>Enterprise Shared Library (DTOs, Exceptions, Wrappers)</description>
-     <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
 
-    <!-- PACKAGING FIX: This is a LIBRARY, not a runnable app -->
+    <!-- PACKAGING: This is a LIBRARY, not a runnable app -->
     <packaging>jar</packaging>
 
     <dependencies>
@@ -52,7 +49,7 @@
 
     </dependencies>
 
-    <!-- ENTERPRISE FIX: Disable executable JAR for shared module -->
+    <!-- Disable executable JAR for shared module -->
     <build>
         <plugins>
             <plugin>

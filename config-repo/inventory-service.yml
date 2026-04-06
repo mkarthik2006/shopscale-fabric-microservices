@@ -2,12 +2,12 @@ server:
   port: 8083
 
 spring:
-  #JAVA 21 VIRTUAL THREADS (Active for all high-load stock deduction tasks)
+  # JAVA 21 VIRTUAL THREADS (Active for all high-load stock deduction tasks)
   threads:
     virtual:
       enabled: true
 
-  #DATABASE (PostgreSQL - Mandatory Page 6)
+  # DATABASE (PostgreSQL - Mandatory Page 6)
   datasource:
     url: jdbc:postgresql://${DB_HOST:postgres}:5432/${DB_NAME:inventorydb}
     username: ${DB_USER:shopscale}
@@ -22,35 +22,36 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  #KAFKA (Consumer & SAGA Producer Support)
+  # KAFKA (Consumer & SAGA Producer Support)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
 
     consumer:
       group-id: inventory-group
-      auto-offset-reset: earliest 
+      auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
-        spring.json.value.default.type: com.shopscale.contracts.events.OrderPlacedEvent
+        # FIX: Was com.shopscale.contracts.events — actual package is com.shopscale.common.events
+        spring.json.value.default.type: com.shopscale.common.events.OrderPlacedEvent
 
-    #SAGA PRODUCER (Mandatory for reporting failures)
+    # SAGA PRODUCER (Mandatory for reporting failures)
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all 
+      acks: all
       retries: 5
       properties:
-        enable.idempotence: true # Essential for SAGA consistency
+        enable.idempotence: true
 
-#OBSERVABILITY & HEALTH (Week 4 Trace/Metrics Mandate)
+# OBSERVABILITY & HEALTH (Week 4 Trace/Metrics Mandate)
 management:
   endpoints:
     web:
       exposure:
-        include: "health,info,metrics,prometheus" 
+        include: "health,info,metrics,prometheus"
   endpoint:
     health:
       show-details: always
@@ -59,7 +60,7 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
-  #DISTRIBUTED TRACING
+  # DISTRIBUTED TRACING
   tracing:
     sampling:
       probability: 1.0
@@ -71,7 +72,7 @@ logging:
   level:
     com.shopscale.inventory: INFO
 
-#SERVICE DISCOVERY
+# SERVICE DISCOVERY
 eureka:
   client:
     service-url:
