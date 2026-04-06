@@ -1,0 +1,72 @@
+server:
+  port: 8086
+
+spring:
+  # JAVA 21 VIRTUAL THREADS (Mandatory — Page 2)
+  threads:
+    virtual:
+      enabled: true
+
+# INTER-SERVICE COMMUNICATION (Cart → Price Service)
+services:
+  price-service:
+    url: http://price-service
+
+# RESILIENCE4J CIRCUIT BREAKER (Mandatory — Page 6)
+resilience4j:
+  circuitbreaker:
+    instances:
+      priceService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-type: COUNT_BASED
+
+  retry:
+    instances:
+      priceService:
+        max-attempts: 3
+        wait-duration: 500ms
+
+  timelimiter:
+    instances:
+      priceService:
+        timeout-duration: 4s
+
+# OBSERVABILITY & HEALTH (Week 4 Trace/Metrics Mandate)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus"
+  endpoint:
+    health:
+      show-details: always
+    info:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  # DISTRIBUTED TRACING (100% Trace Sampling)
+  tracing:
+    sampling:
+      probability: 1.0
+
+# STRUCTURED LOGGING & TRACING
+logging:
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
+  level:
+    com.shopscale.cart: INFO
+    io.github.resilience4j: INFO
+
+# SERVICE DISCOVERY
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:discovery-service}:8761/eureka/
+  instance:
+    prefer-ip-address: true

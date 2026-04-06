@@ -1,0 +1,54 @@
+server:
+  port: 8085
+
+spring:
+  # JAVA 21 VIRTUAL THREADS (Mandatory — Page 2)
+  threads:
+    virtual:
+      enabled: true
+
+  # REDIS CACHE (Mandatory — Page 3, "second-level caching via Redis")
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000
+      cache-null-values: false
+
+# OBSERVABILITY & HEALTH (Week 4 Trace/Metrics Mandate)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus"
+  endpoint:
+    health:
+      show-details: always
+    info:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  # DISTRIBUTED TRACING (100% Trace Sampling)
+  tracing:
+    sampling:
+      probability: 1.0
+
+# STRUCTURED LOGGING & TRACING
+logging:
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
+  level:
+    com.shopscale.price: INFO
+
+# SERVICE DISCOVERY
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:discovery-service}:8761/eureka/
+  instance:
+    prefer-ip-address: true
