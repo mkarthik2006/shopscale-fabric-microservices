@@ -3,6 +3,8 @@ package com.shopscale.order.service;
 import com.shopscale.common.events.OrderPlacedEvent;
 import com.shopscale.order.model.OrderEntity;
 import com.shopscale.order.repository.OrderRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -14,46 +16,51 @@ import java.util.UUID;
 @Service
 public class OrderService {
 
-  private final OrderRepository repository;
-  private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
- 
-  @Value("${app.kafka.topic.order-placed}")
-  private String topic;
+    private final OrderRepository repository;
+    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
-  public OrderService(OrderRepository repository, KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate) {
-    this.repository = repository;
-    this.kafkaTemplate = kafkaTemplate;
-  }
+    @Value("${app.kafka.topic.order-placed}")
+    private String topic;
 
-  @Transactional
-  public OrderEntity placeOrder(OrderEntity order) {
-    order.setStatus("PLACED");
-    OrderEntity saved = repository.save(order);
+    public OrderService(OrderRepository repository, KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate) {
+        this.repository = repository;
+        this.kafkaTemplate = kafkaTemplate;
+    }
 
-    List<OrderPlacedEvent.Item> eventItems = saved.getItems().stream()
-        .map(i -> new OrderPlacedEvent.Item(i.getSku(), i.getQuantity(), i.getUnitPrice()))
-        .toList();
+    @Transactional
+    public OrderEntity placeOrder(OrderEntity order) {
+        order.setStatus("PLACED");
+        OrderEntity saved = repository.save(order);
 
-    OrderPlacedEvent event = new OrderPlacedEvent(
-        UUID.randomUUID(),
-        "ORDER_PLACED",
-        saved.getCreatedAt(),
-        saved.getId(),
-        saved.getUserId(),
-        eventItems,
-        saved.getTotalAmount(),
-        saved.getCurrency()
-    );
+        List<OrderPlacedEvent.Item> eventItems = saved.getItems().stream()
+                .map(i -> new OrderPlacedEvent.Item(i.getSku(), i.getQuantity(), i.getUnitPrice()))
+                .toList();
 
-    System.out.println("🚀 Sending OrderPlacedEvent to Kafka for orderId: " + saved.getId());
+        OrderPlacedEvent event = new OrderPlacedEvent(
+                UUID.randomUUID(),
+                "ORDER_PLACED",
+                saved.getCreatedAt(),
+                saved.getId(),
+                saved.getUserId(),
+                eventItems,
+                saved.getTotalAmount(),
+                saved.getCurrency()
+        );
 
-    kafkaTemplate.send(topic, saved.getId().toString(), event);
+        log.info("Sending OrderPlacedEvent to Kafka | orderId={}", saved.getId());
 
-    return saved;
-  }
+        kafkaTemplate.send(topic, saved.getId().toString(), event);
 
-  public OrderEntity getById(UUID id) { return repository.findById(id).orElseThrow(); }
+        return saved;
+    }
 
-  public List<OrderEntity> byUser(String userId) { return repository.findByUserId(userId); }
+    public OrderEntity getById(UUID id) {
+        return repository.findById(id).orElseThrow();
+    }
+
+    public List<OrderEntity> byUser(String userId) {
+        return repository.findByUserId(userId);
+    }
 }

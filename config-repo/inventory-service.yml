@@ -2,12 +2,12 @@ server:
   port: 8083
 
 spring:
-  # JAVA 21 VIRTUAL THREADS (Active for all high-load stock deduction tasks)
+  # JAVA 21 VIRTUAL THREADS
   threads:
     virtual:
       enabled: true
 
-  # DATABASE (PostgreSQL - Mandatory Page 6)
+  # DATABASE (PostgreSQL)
   datasource:
     url: jdbc:postgresql://${DB_HOST:postgres}:5432/${DB_NAME:inventorydb}
     username: ${DB_USER:shopscale}
@@ -34,10 +34,10 @@ spring:
       properties:
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
-        # FIX: Was com.shopscale.contracts.events — actual package is com.shopscale.common.events
+        # FIX: Was com.shopscale.contracts.events — must be com.shopscale.common.events
         spring.json.value.default.type: com.shopscale.common.events.OrderPlacedEvent
 
-    # SAGA PRODUCER (Mandatory for reporting failures)
+    # SAGA PRODUCER
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -46,7 +46,7 @@ spring:
       properties:
         enable.idempotence: true
 
-# OBSERVABILITY & HEALTH (Week 4 Trace/Metrics Mandate)
+# OBSERVABILITY & HEALTH
 management:
   endpoints:
     web:

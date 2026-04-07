@@ -17,7 +17,7 @@ spring:
       properties:
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
-        # FIX: Was java.lang.Object — must match actual event class for deserialization
+        # FIX: Was java.lang.Object — must match actual event class
         spring.json.value.default.type: com.shopscale.common.events.OrderPlacedEvent
 
     listener:

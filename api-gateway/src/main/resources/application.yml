@@ -110,10 +110,9 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # Port externalized — local=8180 (host), Docker=8080 (internal)
           issuer-uri: http://${KEYCLOAK_HOST:localhost}:${KEYCLOAK_PORT:8180}/realms/shopscale
 
-  # Spring Boot 3.x uses spring.data.redis prefix
+  # Spring Boot 3.x redis prefix
   data:
     redis:
       host: ${REDIS_HOST:localhost}
