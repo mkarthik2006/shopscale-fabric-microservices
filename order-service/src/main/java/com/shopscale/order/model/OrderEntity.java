@@ -1,6 +1,7 @@
 package com.shopscale.order.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
@@ -16,8 +17,10 @@ public class OrderEntity {
   private String status;
   private Instant createdAt;
 
-  @ElementCollection(fetch = FetchType.EAGER)
+  
+  @ElementCollection(fetch = FetchType.LAZY)
   @CollectionTable(name = "order_items", joinColumns = @JoinColumn(name = "order_id"))
+  @BatchSize(size = 50)
   private List<OrderItemEmbeddable> items = new ArrayList<>();
 
   @PrePersist
@@ -26,6 +29,7 @@ public class OrderEntity {
     if (createdAt == null) createdAt = Instant.now();
   }
 
+  // Getters and Setters...
   public UUID getId() { return id; }
   public void setId(UUID id) { this.id = id; }
   public String getUserId() { return userId; }

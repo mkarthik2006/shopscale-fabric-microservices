@@ -61,7 +61,7 @@ management:
 
 logging:
   pattern:
-    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
+    level: '{ "traceId": "%X{traceId:-}", "spanId": "%X{spanId:-}" } %5p [%t] %c{1}: %m%n'
   level:
     com.shopscale.notification: INFO
     org.springframework.kafka: INFO

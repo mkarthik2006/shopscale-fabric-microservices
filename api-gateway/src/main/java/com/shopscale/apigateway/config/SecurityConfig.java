@@ -25,20 +25,28 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .authorizeExchange(ex -> ex
-                        // OBSERVABILITY HARDENING: Only basic checks are public
-                        .pathMatchers("/actuator/health/**", "/actuator/info/**").permitAll()
-                        .pathMatchers("/actuator/**").hasAuthority("ROLE_ADMIN")
 
-                        // PUBLIC ROUTES: Catalogue browsing (Page 7)
-                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .pathMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+        // ✅ HEALTH + INFO (PUBLIC)
+        .pathMatchers("/actuator/health/**", "/actuator/info/**").permitAll()
 
-                        // PROTECTED ROUTES: SAGA Order placement & Inventory (Page 6)
-                        .pathMatchers("/api/orders/**", "/api/inventory/**", "/api/cart/**").authenticated()
+        // ✅ STRICT ADMIN PROTECTION (MANDATORY RULE)
+        .pathMatchers("/admin/**").hasRole("ADMIN")
 
-                        // CATCH-ALL
-                        .anyExchange().authenticated()
-                )
+        // ✅ ACTUATOR FULL ACCESS ONLY ADMIN
+        .pathMatchers("/actuator/**").hasRole("ADMIN")
+
+        // ✅ CORS PREFLIGHT
+        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+        // ✅ PUBLIC PRODUCT APIs
+        .pathMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+
+        // ✅ AUTHENTICATED BUSINESS APIs
+        .pathMatchers("/api/orders/**", "/api/inventory/**", "/api/cart/**").authenticated()
+
+        // ✅ DEFAULT SECURITY
+        .anyExchange().authenticated()
+)
 
                 // ENTERPRISE JWT VALIDATION (Auto-configured from YML)
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))

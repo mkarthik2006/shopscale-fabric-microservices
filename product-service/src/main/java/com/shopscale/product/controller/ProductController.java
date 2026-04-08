@@ -2,6 +2,7 @@ package com.shopscale.product.controller;
 
 import java.util.List;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.shopscale.product.model.Product;
 import com.shopscale.product.service.ProductService;
 
@@ -35,6 +36,7 @@ public class ProductController {
     return service.update(id, req);
   }
 
+  @PreAuthorize("hasRole('ADMIN')")
   @DeleteMapping("/{id}")
   public void delete(@PathVariable String id) {
     service.delete(id);

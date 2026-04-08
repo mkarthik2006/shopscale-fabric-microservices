@@ -35,6 +35,9 @@ class OrderServiceTest {
     @Mock
     private KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
+    @Mock
+    private java.util.concurrent.ExecutorService executorService;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -54,6 +57,12 @@ class OrderServiceTest {
         sampleOrder.setTotalAmount(new BigDecimal("399.98"));
         sampleOrder.setCurrency("USD");
         sampleOrder.setItems(List.of(item));
+
+        lenient().doAnswer(invocation -> {
+            Runnable r = invocation.getArgument(0);
+            r.run();
+            return null;
+        }).when(executorService).submit(any(Runnable.class));
     }
 
     @Test

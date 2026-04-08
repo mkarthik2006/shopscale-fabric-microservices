@@ -15,11 +15,16 @@
   <name>product-service</name>
 
   <dependencies>
-    <!-- Fabric Shared Module -->
     <dependency>
       <groupId>com.shopscale</groupId>
       <artifactId>shopscale-common</artifactId>
       <version>1.0.0</version>
+    </dependency>
+
+    <!-- SECURITY (For @PreAuthorize and X-Roles parsing) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
 
     <!-- WEB & DATA -->
@@ -86,11 +91,6 @@
       <scope>test</scope>
     </dependency>
 
-            <!-- OpenAPI / Swagger — version from parent BOM -->
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-        </dependency>
   </dependencies>
 
   <build>
