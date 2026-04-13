@@ -6,6 +6,7 @@ WORKDIR /workspace
 # STEP 1: Copy ALL pom files (important for multi-module caching)
 COPY pom.xml .
 COPY shopscale-common/pom.xml shopscale-common/pom.xml
+COPY shopscale-oidc/pom.xml shopscale-oidc/pom.xml
 COPY config-server/pom.xml config-server/pom.xml
 COPY discovery-service/pom.xml discovery-service/pom.xml
 COPY api-gateway/pom.xml api-gateway/pom.xml

@@ -20,12 +20,16 @@ function LoginPage() {
     e.preventDefault();
     try {
       // CLEAN CODE: Keycloak URL externalized — defaults to host-accessible port for local dev
-      const keycloakUrl = process.env.REACT_APP_KEYCLOAK_URL || 'http://localhost:8180';
       const keycloakRealm = process.env.REACT_APP_KEYCLOAK_REALM || 'shopscale';
       const keycloakClientId = process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'shopscale-gateway';
+      // When REACT_APP_KEYCLOAK_URL is unset, use same-origin /auth/** (nginx → gateway → Keycloak)
+      const keycloakUrl = process.env.REACT_APP_KEYCLOAK_URL;
+      const tokenUrl = keycloakUrl
+        ? `${keycloakUrl}/realms/${keycloakRealm}/protocol/openid-connect/token`
+        : `/auth/realms/${keycloakRealm}/protocol/openid-connect/token`;
 
       const res = await axios.post(
-        `${keycloakUrl}/realms/${keycloakRealm}/protocol/openid-connect/token`,
+        tokenUrl,
         new URLSearchParams({
           grant_type: 'password',
           client_id: keycloakClientId,

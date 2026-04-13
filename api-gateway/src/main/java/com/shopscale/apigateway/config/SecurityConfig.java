@@ -29,6 +29,9 @@ public class SecurityConfig {
         // ✅ HEALTH + INFO (PUBLIC)
         .pathMatchers("/actuator/health/**", "/actuator/info/**").permitAll()
 
+        // Keycloak OIDC endpoints proxied through the gateway (frontend talks only to gateway)
+        .pathMatchers("/auth/**").permitAll()
+
         // ✅ STRICT ADMIN PROTECTION (MANDATORY RULE)
         .pathMatchers("/admin/**").hasRole("ADMIN")
 

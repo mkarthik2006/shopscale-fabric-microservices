@@ -34,6 +34,16 @@ management:
     tags:
       application: ${spring.application.name}
 
+# SERVICE DISCOVERY (PROJECT_RULES.md Week 1 — all services register with Eureka)
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
 # LOGGING
 logging:
   level:

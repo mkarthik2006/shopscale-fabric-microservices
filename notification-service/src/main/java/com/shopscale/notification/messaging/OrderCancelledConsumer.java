@@ -27,7 +27,7 @@ public class OrderCancelledConsumer {
         this.mailSender = mailSender;
     }
 
-    @KafkaListener(topics = "${app.kafka.topic.order-cancelled:order.cancelled}", groupId = "notification-group")
+    @KafkaListener(topics = "${app.kafka.topic.order-cancelled:order.cancelled}", groupId = "notification-order-cancelled")
     public void consume(OrderCancelledEvent event) {
         log.info("Received cancellation event for order: {}", event.orderId());
 

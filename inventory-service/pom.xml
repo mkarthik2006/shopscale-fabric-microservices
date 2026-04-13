@@ -23,6 +23,17 @@
       <version>1.0.0</version>
     </dependency>
 
+    <dependency>
+      <groupId>com.shopscale</groupId>
+      <artifactId>shopscale-oidc</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+
     <!-- DATA & TRANSACTIONAL ACCESS (PostgreSQL) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -33,6 +44,15 @@
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
       <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.redisson</groupId>
+      <artifactId>redisson-spring-boot-starter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.redisson</groupId>
+      <artifactId>redisson-hibernate-6</artifactId>
     </dependency>
 
     <!-- EVENT-DRIVEN CORE (KAFKA) -->
@@ -96,6 +116,19 @@
     <dependency>
       <groupId>org.springframework.kafka</groupId>
       <artifactId>spring-kafka-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <version>4.2.2</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

@@ -3,6 +3,9 @@ package com.shopscale.notification.model;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -12,6 +15,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "processed_notifications")
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE, region = "notification.ProcessedNotificationEntity")
 public class ProcessedNotificationEntity {
 
     @Id

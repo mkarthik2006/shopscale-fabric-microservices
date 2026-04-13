@@ -4,16 +4,21 @@ import com.shopscale.common.exception.GlobalExceptionHandler;
 
 import com.shopscale.cart.service.PriceClientService;
 import com.shopscale.common.dto.PriceResponseDto;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -36,6 +41,22 @@ class CartControllerTest {
     @MockBean
     private PriceClientService priceClientService;
 
+    @MockBean
+    private JwtDecoder jwtDecoder;
+
+    @BeforeEach
+    void stubJwtDecoder() {
+        when(jwtDecoder.decode(anyString())).thenAnswer(inv -> {
+            String token = inv.getArgument(0);
+            return Jwt.withTokenValue(token)
+                    .header("alg", "none")
+                    .issuedAt(Instant.now())
+                    .expiresAt(Instant.now().plusSeconds(3600))
+                    .issuer("http://cart.test")
+                    .build();
+        });
+    }
+
     // ✅ SUCCESS CASE
     @Test
     @DisplayName("GET /cart/total — returns cart total successfully")
@@ -47,6 +68,7 @@ class CartControllerTest {
         when(priceClientService.getPrice("P1")).thenReturn(priceData);
 
         mockMvc.perform(get("/api/v1/cart/user-001/total")
+                        .header("Authorization", "Bearer unit-test-token")
                         .param("sku", "P1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCESS"))
@@ -71,6 +93,7 @@ class CartControllerTest {
         when(priceClientService.getPrice("P1")).thenReturn(fallback);
 
         mockMvc.perform(get("/api/v1/cart/user-001/total")
+                        .header("Authorization", "Bearer unit-test-token")
                         .param("sku", "P1"))
                 .andExpect(status().isOk())
                 // FIX: Correct nested path
@@ -87,6 +110,7 @@ class CartControllerTest {
                 .thenThrow(new RuntimeException("Unexpected failure"));
 
         mockMvc.perform(get("/api/v1/cart/user-001/total")
+                        .header("Authorization", "Bearer unit-test-token")
                         .param("sku", "P1"))
                 .andExpect(status().is5xxServerError());
     }
@@ -96,7 +120,8 @@ class CartControllerTest {
     @DisplayName("GET /cart/total — returns 400 when SKU missing")
     void total_shouldReturn400WhenSkuMissing() throws Exception {
 
-        mockMvc.perform(get("/api/v1/cart/user-001/total"))
+        mockMvc.perform(get("/api/v1/cart/user-001/total")
+                        .header("Authorization", "Bearer unit-test-token"))
                 .andExpect(status().isBadRequest());
     }
 }

@@ -63,6 +63,12 @@
       <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
     </dependency>
 
+    <!-- PROJECT_RULES.md §1 — Redis: session management (WebSession in Redis) -->
+    <dependency>
+      <groupId>org.springframework.session</groupId>
+      <artifactId>spring-session-data-redis</artifactId>
+    </dependency>
+
     <!-- OBSERVABILITY & TRACING (Week 4 Distributed Tracking) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

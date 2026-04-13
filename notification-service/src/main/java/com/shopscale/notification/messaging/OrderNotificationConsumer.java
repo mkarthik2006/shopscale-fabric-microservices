@@ -34,7 +34,7 @@ public class OrderNotificationConsumer {
     }
 
     @Transactional
-    @KafkaListener(topics = "order.placed", groupId = "notification-group")
+    @KafkaListener(topics = "order.placed", groupId = "notification-order-placed")
     public void consume(OrderPlacedEvent event) {
 
         // IDEMPOTENCY GUARD: Skip if already processed

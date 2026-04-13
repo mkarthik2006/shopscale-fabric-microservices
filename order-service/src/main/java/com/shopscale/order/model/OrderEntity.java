@@ -2,12 +2,15 @@ package com.shopscale.order.model;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 
 @Entity
 @Table(name = "orders")
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE, region = "order.OrderEntity")
 public class OrderEntity {
   @Id
   private UUID id;

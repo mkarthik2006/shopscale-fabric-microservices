@@ -7,7 +7,7 @@ spring:
 
   # Centralized configuration import
   config:
-    import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
+    import: optional:configserver:http://${CONFIG_SERVER_HOST:config-server}:8888
 
   # JAVA 21 VIRTUAL THREADS
   threads:
@@ -26,16 +26,18 @@ spring:
         response-timeout: 5000
 
       routes:
+        - id: keycloak-bff
+          uri: http://${KEYCLOAK_HOST:localhost}:${KEYCLOAK_PORT:8180}
+          predicates:
+            - Path=/auth/**
+          filters:
+            - StripPrefix=1
+
         - id: product-service
           uri: lb://product-service
           predicates:
             - Path=/api/products/**
           filters:
-            - name: RequestRateLimiter
-              args:
-                key-resolver: "#{@userOrIpKeyResolver}"
-                redis-rate-limiter.replenishRate: 100
-                redis-rate-limiter.burstCapacity: 100
             - name: CircuitBreaker
               args:
                 name: productService
@@ -47,11 +49,6 @@ spring:
           predicates:
             - Path=/api/orders/**
           filters:
-            - name: RequestRateLimiter
-              args:
-                key-resolver: "#{@userOrIpKeyResolver}"
-                redis-rate-limiter.replenishRate: 100
-                redis-rate-limiter.burstCapacity: 100
             - name: CircuitBreaker
               args:
                 name: orderService
@@ -63,11 +60,6 @@ spring:
           predicates:
             - Path=/api/inventory/**
           filters:
-            - name: RequestRateLimiter
-              args:
-                key-resolver: "#{@userOrIpKeyResolver}"
-                redis-rate-limiter.replenishRate: 100
-                redis-rate-limiter.burstCapacity: 100
             - name: CircuitBreaker
               args:
                 name: inventoryService
@@ -79,11 +71,6 @@ spring:
           predicates:
             - Path=/api/cart/**
           filters:
-            - name: RequestRateLimiter
-              args:
-                key-resolver: "#{@userOrIpKeyResolver}"
-                redis-rate-limiter.replenishRate: 100
-                redis-rate-limiter.burstCapacity: 100
             - name: CircuitBreaker
               args:
                 name: cartService
@@ -95,11 +82,6 @@ spring:
           predicates:
             - Path=/api/prices/**
           filters:
-            - name: RequestRateLimiter
-              args:
-                key-resolver: "#{@userOrIpKeyResolver}"
-                redis-rate-limiter.replenishRate: 100
-                redis-rate-limiter.burstCapacity: 100
             - name: CircuitBreaker
               args:
                 name: priceService
@@ -117,6 +99,11 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+
+  session:
+    store-type: redis
+    redis:
+      namespace: spring:session:gateway
 
 eureka:
   client:

@@ -23,6 +23,12 @@
       <artifactId>spring-cloud-config-server</artifactId>
     </dependency>
 
+    <!-- Week 1 — register with Eureka like other platform microservices -->
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+
     <!-- OBSERVABILITY & MONITORING (Week 4 Mandate) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

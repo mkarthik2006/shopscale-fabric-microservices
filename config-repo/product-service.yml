@@ -7,6 +7,12 @@ spring:
     virtual:
       enabled: true
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://${KEYCLOAK_HOST:keycloak}:${KEYCLOAK_PORT:8080}/realms/shopscale
+
   #DATABASE (MongoDB - Week 1 Mandate)
   data:
     mongodb:

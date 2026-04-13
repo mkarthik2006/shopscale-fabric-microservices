@@ -6,7 +6,7 @@ spring:
     name: notification-service
 
   config:
-    import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
+    import: optional:configserver:http://${CONFIG_SERVER_HOST:config-server}:8888
     fail-fast: true
     retry:
       max-attempts: 10
@@ -14,6 +14,12 @@ spring:
   threads:
     virtual:
       enabled: true
+
+  redis:
+    redisson:
+      config: |
+        singleServerConfig:
+          address: "redis://${REDIS_HOST:localhost}:${REDIS_PORT:6379}"
 
   # DATABASE (Idempotency Store)
   datasource:
@@ -29,6 +35,11 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        cache:
+          use_second_level_cache: true
+          use_query_cache: false
+          region:
+            factory_class: org.redisson.hibernate.RedissonRegionFactory
 
   # KAFKA
   kafka:

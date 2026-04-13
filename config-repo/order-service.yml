@@ -7,6 +7,18 @@ spring:
     virtual:
       enabled: true
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://${KEYCLOAK_HOST:keycloak}:${KEYCLOAK_PORT:8080}/realms/shopscale
+
+  redis:
+    redisson:
+      config: |
+        singleServerConfig:
+          address: "redis://${REDIS_HOST:redis}:${REDIS_PORT:6379}"
+
   #DATABASE (PostgreSQL - Mandatory Page 6)
   datasource:
     url: jdbc:postgresql://${DB_HOST:postgres}:5432/${DB_NAME:orderdb}
@@ -21,10 +33,18 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        cache:
+          use_second_level_cache: true
+          use_query_cache: false
+          region:
+            factory_class: org.redisson.hibernate.RedissonRegionFactory
 
   #KAFKA (Producer & Event-Driven Settings)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+
+    listener:
+      missing-topics-fatal: false
 
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer

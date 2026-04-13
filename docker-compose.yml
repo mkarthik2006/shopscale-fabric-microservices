@@ -151,11 +151,18 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
-    restart: on-failure
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 150s
     environment:
       - SERVER_PORT=8080
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - CONFIG_SERVER_HOST=config-server
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
       - KEYCLOAK_HOST=keycloak
@@ -173,12 +180,23 @@ services:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
     ports: ["9081:8081"]
-    restart: on-failure
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 150s
     environment:
       - SERVER_PORT=8081
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - CONFIG_SERVER_HOST=config-server
+      - KEYCLOAK_HOST=keycloak
+      - KEYCLOAK_PORT=8080
       - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/product_db
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
@@ -189,24 +207,37 @@ services:
       args:
         SERVICE_NAME: order-service
     depends_on:
+      redis:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       kafka:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
     ports: ["9082:8082"]
-    restart: on-failure
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8082/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 150s
     environment:
       - SERVER_PORT=8082
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - CONFIG_SERVER_HOST=config-server
       - DB_HOST=postgres
       - DB_NAME=orderdb
       - DB_USER=shopscale
       - DB_PASS=shopscale
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
   inventory-service:
     build:
@@ -215,24 +246,37 @@ services:
       args:
         SERVICE_NAME: inventory-service
     depends_on:
+      redis:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       kafka:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
     ports: ["9083:8083"]
-    restart: on-failure
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 150s
     environment:
       - SERVER_PORT=8083
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - CONFIG_SERVER_HOST=config-server
       - DB_HOST=postgres
       - DB_NAME=inventorydb
       - DB_USER=shopscale
       - DB_PASS=shopscale
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
   notification-service:
     build:
@@ -241,18 +285,31 @@ services:
       args:
         SERVICE_NAME: notification-service
     depends_on:
+      redis:
+        condition: service_healthy
       kafka:
         condition: service_healthy
       postgres:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
     ports: ["9084:8084"]
-    restart: on-failure
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8084/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 150s
     environment:
       - SERVER_PORT=8084
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - CONFIG_SERVER_HOST=config-server
+      - KEYCLOAK_HOST=keycloak
+      - KEYCLOAK_PORT=8080
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - DB_HOST=postgres
       - DB_NAME=notificationdb
@@ -261,6 +318,8 @@ services:
       - MAIL_HOST=mailhog
       - MAIL_PORT=1025
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
   price-service:
     build:
@@ -273,12 +332,23 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
     ports: ["9085:8085"]
-    restart: on-failure
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8085/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 150s
     environment:
       - SERVER_PORT=8085
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - CONFIG_SERVER_HOST=config-server
+      - KEYCLOAK_HOST=keycloak
+      - KEYCLOAK_PORT=8080
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
@@ -291,15 +361,26 @@ services:
         SERVICE_NAME: cart-service
     depends_on:
       price-service:
-        condition: service_started
+        condition: service_healthy
       discovery-service:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
     ports: ["9086:8086"]
-    restart: on-failure
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8086/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 150s
     environment:
       - SERVER_PORT=8086
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - CONFIG_SERVER_HOST=config-server
+      - KEYCLOAK_HOST=keycloak
+      - KEYCLOAK_PORT=8080
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   # ⚡ REACT FRONTEND

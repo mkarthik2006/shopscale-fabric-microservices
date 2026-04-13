@@ -34,6 +34,7 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- OAuth2 resource server (Keycloak JWT) — shared Keycloak role mapping -->
         <!-- OpenAPI / Swagger (DTO schemas) — version from parent -->
         <dependency>
             <groupId>org.springdoc</groupId>
