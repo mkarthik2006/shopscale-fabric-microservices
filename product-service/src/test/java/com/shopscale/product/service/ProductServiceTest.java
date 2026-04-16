@@ -135,4 +135,32 @@ class ProductServiceTest {
         productService.delete("prod-1");
         verify(repo).deleteById("prod-1");
     }
+
+    // ===================== NEW DTO TESTS (ADDED ONLY) =====================
+
+    @Test
+    @DisplayName("getAllDTO — returns mapped ProductDTO list")
+    void getAllDTO_shouldReturnMappedDTOs() {
+        when(repo.findAll()).thenReturn(List.of(sampleProduct));
+
+        var result = productService.getAllDTO();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getId()).isEqualTo("prod-1");
+        assertThat(result.get(0).getSku()).isEqualTo("P1");
+        assertThat(result.get(0).getName()).isEqualTo("Enterprise Widget");
+        assertThat(result.get(0).getPrice()).isEqualByComparingTo(new BigDecimal("199.99"));
+        assertThat(result.get(0).getStock()).isEqualTo(100);
+        assertThat(result.get(0).getActive()).isTrue();
+    }
+
+    @Test
+    @DisplayName("getAllDTO — returns empty list when no products exist")
+    void getAllDTO_shouldReturnEmptyWhenNone() {
+        when(repo.findAll()).thenReturn(List.of());
+
+        var result = productService.getAllDTO();
+
+        assertThat(result).isEmpty();
+    }
 }

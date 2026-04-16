@@ -2,10 +2,11 @@ package com.shopscale.inventory.messaging;
 
 import com.shopscale.common.events.InventoryInsufficientEvent;
 import com.shopscale.common.events.OrderPlacedEvent;
+import com.shopscale.inventory.model.InboxEventEntity;
+import com.shopscale.inventory.model.InboxEventStatus;
 import com.shopscale.inventory.model.InventoryEntity;
-import com.shopscale.inventory.model.ProcessedEventEntity;
+import com.shopscale.inventory.repository.InboxEventRepository;
 import com.shopscale.inventory.repository.InventoryRepository;
-import com.shopscale.inventory.repository.ProcessedEventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ import static org.mockito.Mockito.*;
 class OrderPlacedConsumerTest {
 
     @Mock private InventoryRepository inventoryRepository;
-    @Mock private ProcessedEventRepository processedEventRepository;
+    @Mock private InboxEventRepository inboxEventRepository;
     @Mock private KafkaTemplate<String, Object> kafkaTemplate;
 
     // FIX: Use manual construction instead of @InjectMocks (constructor has @Value param)
@@ -51,7 +52,7 @@ class OrderPlacedConsumerTest {
     void setUp() {
         // FIX: Manually construct with failureTopic value
         consumer = new OrderPlacedConsumer(
-                inventoryRepository, processedEventRepository, kafkaTemplate, "inventory.failure"
+                inventoryRepository, inboxEventRepository, kafkaTemplate, "inventory.failure"
         );
 
         eventId = UUID.randomUUID();
@@ -67,7 +68,8 @@ class OrderPlacedConsumerTest {
     @Test
     @DisplayName("consume — deducts stock and marks event as SUCCESS")
     void consume_shouldDeductStockSuccessfully() {
-        when(processedEventRepository.existsById(eventId)).thenReturn(false);
+        when(inboxEventRepository.findById(eventId)).thenReturn(Optional.empty());
+        when(inboxEventRepository.save(any(InboxEventEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         InventoryEntity inv = new InventoryEntity();
         inv.setSku("P1");
@@ -80,16 +82,17 @@ class OrderPlacedConsumerTest {
         assertThat(inv.getStock()).isEqualTo(98);
         verify(inventoryRepository).save(inv);
 
-        ArgumentCaptor<ProcessedEventEntity> captor = ArgumentCaptor.forClass(ProcessedEventEntity.class);
-        verify(processedEventRepository).save(captor.capture());
-        assertThat(captor.getValue().getEventId()).isEqualTo(eventId);
-        assertThat(captor.getValue().getStatus()).isEqualTo("SUCCESS");
+        ArgumentCaptor<InboxEventEntity> captor = ArgumentCaptor.forClass(InboxEventEntity.class);
+        verify(inboxEventRepository, atLeastOnce()).save(captor.capture());
+        assertThat(captor.getAllValues().getLast().getEventId()).isEqualTo(eventId);
+        assertThat(captor.getAllValues().getLast().getStatus()).isEqualTo(InboxEventStatus.PROCESSED);
     }
 
     @Test
     @DisplayName("consume — skips duplicate events (idempotency guard)")
     void consume_shouldSkipDuplicateEvent() {
-        when(processedEventRepository.existsById(eventId)).thenReturn(true);
+        InboxEventEntity processed = new InboxEventEntity(eventId, "ORDER_PLACED", InboxEventStatus.PROCESSED);
+        when(inboxEventRepository.findById(eventId)).thenReturn(Optional.of(processed));
 
         consumer.consume(event);
 
@@ -102,7 +105,8 @@ class OrderPlacedConsumerTest {
     @Test
     @DisplayName("consume — publishes InventoryInsufficientEvent when stock is too low")
     void consume_shouldPublishFailureWhenInsufficientStock() {
-        when(processedEventRepository.existsById(eventId)).thenReturn(false);
+        when(inboxEventRepository.findById(eventId)).thenReturn(Optional.empty());
+        when(inboxEventRepository.save(any(InboxEventEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         InventoryEntity inv = new InventoryEntity();
         inv.setSku("P1");
@@ -126,7 +130,8 @@ class OrderPlacedConsumerTest {
     @Test
     @DisplayName("consume — publishes failure when SKU not found in inventory")
     void consume_shouldPublishFailureWhenSkuNotFound() {
-        when(processedEventRepository.existsById(eventId)).thenReturn(false);
+        when(inboxEventRepository.findById(eventId)).thenReturn(Optional.empty());
+        when(inboxEventRepository.save(any(InboxEventEntity.class))).thenAnswer(inv -> inv.getArgument(0));
         when(inventoryRepository.findById("P1")).thenReturn(Optional.empty());
 
         // FIX: Mock 3-arg Kafka send
@@ -156,7 +161,8 @@ class OrderPlacedConsumerTest {
                 new BigDecimal("1047.47"), "USD"
         );
 
-        when(processedEventRepository.existsById(eventId)).thenReturn(false);
+        when(inboxEventRepository.findById(eventId)).thenReturn(Optional.empty());
+        when(inboxEventRepository.save(any(InboxEventEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         InventoryEntity invP1 = new InventoryEntity();
         invP1.setSku("P1");

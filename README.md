@@ -291,8 +291,20 @@ export TOKEN=$(curl -s -X POST http://localhost:8180/realms/shopscale/protocol/o
 ### Reliability Guarantees
 
 - **At-least-once delivery**: Kafka `acks=all`, `enable.idempotence=true`
-- **Idempotent consumers**: Database-backed `processed_events` / `processed_notifications` tables
+- **Outbox pattern (order-service)**: `orders` + `outbox_event` persisted in the same transaction; scheduled publisher emits and marks `SENT`
+- **Inbox pattern (inventory-service, notification-service)**: `inbox_event` table stores event before processing and marks `PROCESSED` after successful handling
+- **Duplicate protection**: consumers deduplicate by `eventId` and skip already `PROCESSED` events
 - **Dead Letter Queue**: Failed messages → `.DLT` topics after 3 retries
+
+### Outbox + Inbox Flow
+
+```
+1. POST /api/orders persists Order + Outbox row (PENDING) in one transaction
+2. OutboxPublisher polls pending rows and publishes ORDER_PLACED to Kafka
+3. Inventory consumes event, inserts inbox_event(RECEIVED), updates stock, marks PROCESSED
+4. Notification consumes event, inserts inbox_event(RECEIVED), sends mail, marks PROCESSED
+5. Duplicate redelivery is ignored using inbox_event(event_id) state
+```
 
 ---
 
@@ -371,6 +383,29 @@ docker-compose start inventory-service
 # 4. Check order status — should process or trigger SAGA compensation
 curl http://localhost:9080/api/orders?userId=testuser \
   -H "Authorization: Bearer $TOKEN"
+```
+
+### Final Verification Steps
+
+```bash
+# 1) Start full platform
+docker-compose up --build -d
+
+# 2) Run test suite (unit + integration)
+mvn test
+
+# 3) Place one order
+curl -X POST http://localhost:9080/api/orders \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"testuser","items":[{"sku":"P1","quantity":1,"unitPrice":199.99}],"totalAmount":199.99,"currency":"USD"}'
+
+# 4) Verify outbox/inbox transitions in DB (example with psql)
+# outbox_event in orderdb should move PENDING -> SENT
+# inbox_event in inventorydb/notificationdb should become PROCESSED
+
+# 5) Validate tracing
+open http://localhost:9411
 ```
 
 ---

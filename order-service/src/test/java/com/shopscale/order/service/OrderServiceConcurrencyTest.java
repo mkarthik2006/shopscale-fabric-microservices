@@ -1,16 +1,14 @@
 package com.shopscale.order.service;
 
-import com.shopscale.common.events.OrderPlacedEvent;
 import com.shopscale.order.model.OrderEntity;
 import com.shopscale.order.model.OrderItemEmbeddable;
 import com.shopscale.order.repository.OrderRepository;
+import com.shopscale.order.repository.OutboxEventRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -23,8 +21,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,14 +35,16 @@ class OrderServiceConcurrencyTest {
     private OrderRepository repository;
 
     @Mock
-    private KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
+    private OutboxEventRepository outboxEventRepository;
+
+    @Mock
+    private OrderOutboxMapper outboxMapper;
 
     @Test
-    @DisplayName("Concurrent placeOrder invocations each publish a distinct Kafka event (virtual-thread executor)")
-    void placeOrder_underConcurrency_publishesOneEventPerOrder() throws Exception {
+    @DisplayName("Concurrent placeOrder invocations each persist one outbox event (virtual-thread executor)")
+    void placeOrder_underConcurrency_persistsOneOutboxEventPerOrder() throws Exception {
         ExecutorService vtExecutor = Executors.newVirtualThreadPerTaskExecutor();
-        OrderService orderService = new OrderService(repository, kafkaTemplate, vtExecutor);
-        ReflectionTestUtils.setField(orderService, "topic", "order.placed");
+        OrderService orderService = new OrderService(repository, outboxEventRepository, outboxMapper);
 
         int threads = 32;
         CountDownLatch ready = new CountDownLatch(threads);
@@ -64,6 +62,7 @@ class OrderServiceConcurrencyTest {
             }
             return o;
         });
+        when(outboxMapper.toPayload(any(OrderEntity.class))).thenReturn("{\"eventType\":\"ORDER_PLACED\"}");
 
         for (int i = 0; i < threads; i++) {
             int idx = i;
@@ -94,9 +93,7 @@ class OrderServiceConcurrencyTest {
         assertThat(done.await(60, TimeUnit.SECONDS)).isTrue();
 
         verify(repository, times(threads)).save(any(OrderEntity.class));
-        // placeOrder returns before virtual-thread async send; allow time for processOrderAsync
-        verify(kafkaTemplate, timeout(30_000).times(threads))
-                .send(eq("order.placed"), any(String.class), any(OrderPlacedEvent.class));
+        verify(outboxEventRepository, times(threads)).save(any());
 
         vtExecutor.shutdown();
         assertThat(vtExecutor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();

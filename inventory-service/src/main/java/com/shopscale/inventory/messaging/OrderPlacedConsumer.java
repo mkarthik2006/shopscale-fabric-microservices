@@ -2,10 +2,11 @@ package com.shopscale.inventory.messaging;
 
 import com.shopscale.common.events.InventoryInsufficientEvent;
 import com.shopscale.common.events.OrderPlacedEvent;
+import com.shopscale.inventory.model.InboxEventEntity;
+import com.shopscale.inventory.model.InboxEventStatus;
 import com.shopscale.inventory.model.InventoryEntity;
-import com.shopscale.inventory.model.ProcessedEventEntity;
+import com.shopscale.inventory.repository.InboxEventRepository;
 import com.shopscale.inventory.repository.InventoryRepository;
-import com.shopscale.inventory.repository.ProcessedEventRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -15,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class OrderPlacedConsumer {
@@ -22,17 +24,17 @@ public class OrderPlacedConsumer {
     private static final Logger log = LoggerFactory.getLogger(OrderPlacedConsumer.class);
 
     private final InventoryRepository inventoryRepository;
-    private final ProcessedEventRepository processedEventRepository;
+    private final InboxEventRepository inboxEventRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final String failureTopic;
 
     public OrderPlacedConsumer(
             InventoryRepository inventoryRepository,
-            ProcessedEventRepository processedEventRepository,
+            InboxEventRepository inboxEventRepository,
             KafkaTemplate<String, Object> kafkaTemplate,
             @Value("${app.kafka.topic.inventory-failure:inventory.failure}") String failureTopic) {
         this.inventoryRepository = inventoryRepository;
-        this.processedEventRepository = processedEventRepository;
+        this.inboxEventRepository = inboxEventRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.failureTopic = failureTopic;
     }
@@ -46,11 +48,14 @@ public class OrderPlacedConsumer {
 
         UUID eventId = event.eventId();
 
-        // ✅ IDEMPOTENCY (persistent)
-        if (processedEventRepository.existsById(eventId)) {
-            log.warn("Duplicate OrderPlacedEvent skipped | eventId={}", eventId);
+        Optional<InboxEventEntity> existing = inboxEventRepository.findById(eventId);
+        if (existing.isPresent() && existing.get().getStatus() == InboxEventStatus.PROCESSED) {
+            log.info("Duplicate OrderPlacedEvent skipped | eventId={}", eventId);
             return;
         }
+        InboxEventEntity inbox = existing.orElseGet(() ->
+                inboxEventRepository.save(new InboxEventEntity(eventId, event.eventType(), InboxEventStatus.RECEIVED))
+        );
 
         log.info("Processing inventory | orderId={}", event.orderId());
 
@@ -64,7 +69,9 @@ public class OrderPlacedConsumer {
                         .orElseThrow(() -> new RuntimeException("SKU not found: " + item.sku()));
 
                 if (inv.getStock() < item.quantity()) {
-                    triggerCompensation(event, item.sku(), "INSUFFICIENT_STOCK");
+                    if (triggerCompensation(event, item.sku(), "INSUFFICIENT_STOCK")) {
+                        markProcessed(inbox);
+                    }
                     return;
                 }
 
@@ -78,8 +85,7 @@ public class OrderPlacedConsumer {
                 inventoryRepository.save(inv);
             }
 
-            // ✅ MARK SUCCESS
-            processedEventRepository.save(new ProcessedEventEntity(eventId, "SUCCESS"));
+            markProcessed(inbox);
 
             log.info("Inventory reserved successfully | orderId={}", event.orderId());
 
@@ -94,7 +100,7 @@ public class OrderPlacedConsumer {
     /**
      * SAGA Compensation Event
      */
-    private void triggerCompensation(OrderPlacedEvent event, String sku, String reason) {
+    private boolean triggerCompensation(OrderPlacedEvent event, String sku, String reason) {
 
         log.warn("❌ SAGA Compensation Triggered | orderId={} | reason={}", event.orderId(), reason);
 
@@ -105,20 +111,20 @@ public class OrderPlacedConsumer {
                 reason
         );
 
-        // ✅ RELIABLE KAFKA SEND
-        kafkaTemplate.send(failureTopic, event.orderId().toString(), failureEvent)
-                .whenComplete((result, ex) -> {
-                    if (ex == null) {
-                        log.info("Compensation event published | topic={} | orderId={}", failureTopic, event.orderId());
+        try {
+            kafkaTemplate.send(failureTopic, event.orderId().toString(), failureEvent)
+                    .get(5, TimeUnit.SECONDS);
+            log.info("Compensation event published | topic={} | orderId={}", failureTopic, event.orderId());
+            return true;
+        } catch (Exception ex) {
+            log.error("CRITICAL: Failed to publish compensation event | orderId={}", event.orderId(), ex);
+            return false;
+        }
+    }
 
-                        processedEventRepository.save(
-                                new ProcessedEventEntity(event.eventId(), "FAILED_" + reason)
-                        );
-
-                    } else {
-                        log.error("CRITICAL: Failed to publish compensation event | orderId={}", event.orderId(), ex);
-                        throw new RuntimeException("Kafka publish failed", ex);
-                    }
-                });
+    private void markProcessed(InboxEventEntity inbox) {
+        inbox.setStatus(InboxEventStatus.PROCESSED);
+        inbox.setProcessedAt(java.time.Instant.now());
+        inboxEventRepository.save(inbox);
     }
 }

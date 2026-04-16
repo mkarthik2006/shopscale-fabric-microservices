@@ -5,7 +5,7 @@ import com.shopscale.order.dto.OrderResponseDto;
 import com.shopscale.order.model.OrderEntity;
 import com.shopscale.order.model.OrderItemEmbeddable;
 import com.shopscale.order.service.OrderService;
-import com.shopscale.order.repository.OrderRepository;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,15 +20,13 @@ import java.util.stream.Collectors;
 public class OrderController {
     
     private final OrderService service;
-    private final OrderRepository repository;
     
-    public OrderController(OrderService service, OrderRepository repository) { 
+    public OrderController(OrderService service) { 
         this.service = service; 
-        this.repository = repository;
     }
 
     @PostMapping
-    public ResponseEntity<OrderResponseDto> createOrder(@RequestBody OrderRequestDto dto) {
+    public ResponseEntity<OrderResponseDto> createOrder(@Valid @RequestBody OrderRequestDto dto) {
         OrderEntity entity = new OrderEntity();
         entity.setUserId(dto.getUserId());
         entity.setCurrency(dto.getCurrency());
@@ -58,8 +56,7 @@ public class OrderController {
 
     @GetMapping
     public ResponseEntity<List<OrderResponseDto>> getByUser(@RequestParam String userId) {
-        // ✅ Utilizes the DTO Projection query
-        List<OrderResponseDto> dtos = repository.findOrderSummariesByUser(userId);
+        List<OrderResponseDto> dtos = service.byUserSummaries(userId);
         return ResponseEntity.ok(dtos);
     }
 }

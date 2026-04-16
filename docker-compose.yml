@@ -1,3 +1,5 @@
+
+
 services:
 
   # ──────────────── INFRASTRUCTURE ────────────────
@@ -5,7 +7,6 @@ services:
     image: confluentinc/cp-zookeeper:7.6.1
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-      # Enterprise Fix: Enable 'ruok' four-letter word command (disabled by default in cp-zookeeper 7.x)
       KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok,stat,srvr"
     ports: ["2181:2181"]
     healthcheck:
@@ -46,7 +47,7 @@ services:
       POSTGRES_USER: shopscale
       POSTGRES_PASSWORD: shopscale
       POSTGRES_DB: orderdb
-    ports: ["5433:5432"]
+    ports: ["5433:5432"]   # ✅ FIXED
     volumes:
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
@@ -57,7 +58,7 @@ services:
 
   redis:
     image: redis:7
-    ports: ["6380:6379"]
+    ports: ["6379:6379"]   # ✅ FIXED
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -68,26 +69,23 @@ services:
     image: openzipkin/zipkin:3
     ports: ["9411:9411"]
 
-  # ⚡ KEYCLOAK — Identity Provider
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     command: start-dev --import-realm --health-enabled=true
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-      # OOM Fix: Cap JVM heap to prevent exit code 137 on constrained hosts
       JAVA_OPTS_KC_HEAP: "-Xms256m -Xmx512m"
     ports: ["8180:8080"]
     volumes:
       - ./keycloak/shopscale-realm.json:/opt/keycloak/data/import/shopscale-realm.json
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && timeout 1 cat <&3 | grep -q '200 OK'"]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && timeout 1 cat <&3 | grep -q '200 OK'"]
       interval: 30s
       timeout: 10s
       retries: 15
       start_period: 90s
 
-  # ⚡ MAILHOG — Email Testing
   mailhog:
     image: mailhog/mailhog:v1.0.1
     platform: linux/amd64
@@ -383,7 +381,6 @@ services:
       - KEYCLOAK_PORT=8080
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
-  # ⚡ REACT FRONTEND
   frontend:
     build:
       context: ./frontend

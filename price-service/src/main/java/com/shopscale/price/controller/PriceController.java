@@ -1,5 +1,6 @@
 package com.shopscale.price.controller;
 import com.shopscale.common.dto.PriceResponseDto;
+import org.slf4j.MDC;
 
 
 import com.shopscale.common.dto.StandardResponse;
@@ -40,12 +41,18 @@ public class PriceController {
     public ResponseEntity<StandardResponse<PriceResponseDto>> getPrice(
             @PathVariable("sku") @NotBlank(message = "SKU cannot be blank") String sku) {
 
-        log.info("Fetching price for SKU: {}", sku);
+        log.info("Fetching price for SKU: {} traceId={} spanId={}",
+        sku,
+        MDC.get("traceId"),
+        MDC.get("spanId"));
+
+
 
         PriceResponseDto priceData = priceService.getPrice(sku);
 
         return ResponseEntity.ok(
                 StandardResponse.success(priceData)
         );
+        
     }
 }

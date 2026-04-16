@@ -2,9 +2,10 @@ package com.shopscale.inventory.integration;
 
 import com.shopscale.common.events.OrderPlacedEvent;
 import com.shopscale.inventory.InventoryServiceApplication;
+import com.shopscale.inventory.model.InboxEventStatus;
 import com.shopscale.inventory.model.InventoryEntity;
+import com.shopscale.inventory.repository.InboxEventRepository;
 import com.shopscale.inventory.repository.InventoryRepository;
-import com.shopscale.inventory.repository.ProcessedEventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -51,7 +52,7 @@ class OrderPlacedKafkaFlowIntegrationTest {
     private InventoryRepository inventoryRepository;
 
     @Autowired
-    private ProcessedEventRepository processedEventRepository;
+    private InboxEventRepository inboxEventRepository;
 
     @BeforeEach
     void prepare() {
@@ -66,7 +67,7 @@ class OrderPlacedKafkaFlowIntegrationTest {
                     .build();
         });
 
-        processedEventRepository.deleteAll();
+        inboxEventRepository.deleteAll();
         inventoryRepository.deleteAll();
         InventoryEntity inv = new InventoryEntity();
         inv.setSku("P-IT-1");
@@ -95,6 +96,8 @@ class OrderPlacedKafkaFlowIntegrationTest {
         await().atMost(15, TimeUnit.SECONDS).untilAsserted(() -> {
             InventoryEntity inv = inventoryRepository.findById("P-IT-1").orElseThrow();
             assertThat(inv.getStock()).isEqualTo(7);
+            assertThat(inboxEventRepository.findById(eventId)).isPresent();
+            assertThat(inboxEventRepository.findById(eventId).orElseThrow().getStatus()).isEqualTo(InboxEventStatus.PROCESSED);
         });
     }
 }

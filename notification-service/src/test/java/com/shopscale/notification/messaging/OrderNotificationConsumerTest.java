@@ -1,7 +1,9 @@
 package com.shopscale.notification.messaging;
 
 import com.shopscale.common.events.OrderPlacedEvent;
-import com.shopscale.notification.repository.ProcessedNotificationRepository;
+import com.shopscale.notification.model.InboxEventEntity;
+import com.shopscale.notification.model.InboxEventStatus;
+import com.shopscale.notification.repository.InboxEventRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +34,7 @@ class OrderNotificationConsumerTest {
 
     @Mock private JavaMailSender mailSender;
     // FIX: Missing mock — OrderNotificationConsumer requires ProcessedNotificationRepository
-    @Mock private ProcessedNotificationRepository processedRepo;
+    @Mock private InboxEventRepository inboxEventRepository;
     @InjectMocks private OrderNotificationConsumer consumer;
 
     private OrderPlacedEvent createEvent(UUID orderId, BigDecimal amount, String currency) {
@@ -51,7 +53,8 @@ class OrderNotificationConsumerTest {
         OrderPlacedEvent event = createEvent(orderId, new BigDecimal("399.98"), "USD");
 
         // Stub idempotency check
-        when(processedRepo.existsById(event.eventId())).thenReturn(false);
+        when(inboxEventRepository.findById(event.eventId())).thenReturn(java.util.Optional.empty());
+        when(inboxEventRepository.save(any(InboxEventEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         consumer.consume(event);
 
@@ -68,7 +71,8 @@ class OrderNotificationConsumerTest {
         UUID orderId = UUID.randomUUID();
         OrderPlacedEvent event = createEvent(orderId, new BigDecimal("399.98"), "USD");
 
-        when(processedRepo.existsById(event.eventId())).thenReturn(false);
+        when(inboxEventRepository.findById(event.eventId())).thenReturn(java.util.Optional.empty());
+        when(inboxEventRepository.save(any(InboxEventEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         consumer.consume(event);
 
@@ -84,7 +88,8 @@ class OrderNotificationConsumerTest {
     void consume_shouldSendToCorrectRecipient() {
         OrderPlacedEvent event = createEvent(UUID.randomUUID(), new BigDecimal("14.99"), "USD");
 
-        when(processedRepo.existsById(event.eventId())).thenReturn(false);
+        when(inboxEventRepository.findById(event.eventId())).thenReturn(java.util.Optional.empty());
+        when(inboxEventRepository.save(any(InboxEventEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         consumer.consume(event);
 
@@ -100,7 +105,8 @@ class OrderNotificationConsumerTest {
         UUID orderId = UUID.randomUUID();
         OrderPlacedEvent event = createEvent(orderId, new BigDecimal("199.99"), "USD");
 
-        when(processedRepo.existsById(event.eventId())).thenReturn(false);
+        when(inboxEventRepository.findById(event.eventId())).thenReturn(java.util.Optional.empty());
+        when(inboxEventRepository.save(any(InboxEventEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         consumer.consume(event);
 
@@ -115,7 +121,8 @@ class OrderNotificationConsumerTest {
     void consume_shouldHandleMailFailureGracefully() {
         OrderPlacedEvent event = createEvent(UUID.randomUUID(), new BigDecimal("14.99"), "USD");
 
-        when(processedRepo.existsById(event.eventId())).thenReturn(false);
+        when(inboxEventRepository.findById(event.eventId())).thenReturn(java.util.Optional.empty());
+        when(inboxEventRepository.save(any(InboxEventEntity.class))).thenAnswer(inv -> inv.getArgument(0));
         doThrow(new RuntimeException("SMTP connection refused")).when(mailSender).send(any(SimpleMailMessage.class));
 
         // Must NOT throw — consumer logs error and continues
@@ -128,7 +135,8 @@ class OrderNotificationConsumerTest {
     void consume_shouldHandleDifferentCurrencies() {
         OrderPlacedEvent event = createEvent(UUID.randomUUID(), new BigDecimal("1500.00"), "EUR");
 
-        when(processedRepo.existsById(event.eventId())).thenReturn(false);
+        when(inboxEventRepository.findById(event.eventId())).thenReturn(java.util.Optional.empty());
+        when(inboxEventRepository.save(any(InboxEventEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         consumer.consume(event);
 
@@ -145,12 +153,13 @@ class OrderNotificationConsumerTest {
         OrderPlacedEvent event = createEvent(UUID.randomUUID(), new BigDecimal("199.99"), "USD");
 
         // Already processed
-        when(processedRepo.existsById(event.eventId())).thenReturn(true);
+        when(inboxEventRepository.findById(event.eventId()))
+                .thenReturn(java.util.Optional.of(new InboxEventEntity(event.eventId(), event.eventType(), InboxEventStatus.PROCESSED)));
 
         consumer.consume(event);
 
         // No email sent, no save
         verify(mailSender, never()).send(any(SimpleMailMessage.class));
-        verify(processedRepo, never()).save(any());
+        verify(inboxEventRepository, never()).save(any());
     }
 }

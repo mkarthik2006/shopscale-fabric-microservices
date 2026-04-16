@@ -1,8 +1,9 @@
 package com.shopscale.notification.messaging;
 
 import com.shopscale.common.events.OrderPlacedEvent;
-import com.shopscale.notification.model.ProcessedNotificationEntity;
-import com.shopscale.notification.repository.ProcessedNotificationRepository;
+import com.shopscale.notification.model.InboxEventEntity;
+import com.shopscale.notification.model.InboxEventStatus;
+import com.shopscale.notification.repository.InboxEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,26 +23,29 @@ public class OrderNotificationConsumer {
     private static final Logger log = LoggerFactory.getLogger(OrderNotificationConsumer.class);
 
     private final JavaMailSender mailSender;
-    private final ProcessedNotificationRepository processedRepo;
+    private final InboxEventRepository inboxEventRepository;
 
     @Value("${app.notification.from:noreply@shopscale.dev}")
     private String fromAddress;
 
     public OrderNotificationConsumer(JavaMailSender mailSender,
-                                      ProcessedNotificationRepository processedRepo) {
+                                     InboxEventRepository inboxEventRepository) {
         this.mailSender = mailSender;
-        this.processedRepo = processedRepo;
+        this.inboxEventRepository = inboxEventRepository;
     }
 
     @Transactional
     @KafkaListener(topics = "order.placed", groupId = "notification-order-placed")
     public void consume(OrderPlacedEvent event) {
 
-        // IDEMPOTENCY GUARD: Skip if already processed
-        if (processedRepo.existsById(event.eventId())) {
+        var existing = inboxEventRepository.findById(event.eventId());
+        if (existing.isPresent() && existing.get().getStatus() == InboxEventStatus.PROCESSED) {
             log.info("Duplicate notification event skipped: {}", event.eventId());
             return;
         }
+        InboxEventEntity inbox = existing.orElseGet(() ->
+                inboxEventRepository.save(new InboxEventEntity(event.eventId(), event.eventType(), InboxEventStatus.RECEIVED))
+        );
 
         log.info("Received order event: {}", event.orderId());
 
@@ -58,7 +62,9 @@ public class OrderNotificationConsumer {
             mailSender.send(message);
 
             // Mark as processed AFTER successful send
-            processedRepo.save(new ProcessedNotificationEntity(event.eventId(), "ORDER_PLACED"));
+            inbox.setStatus(InboxEventStatus.PROCESSED);
+            inbox.setProcessedAt(java.time.Instant.now());
+            inboxEventRepository.save(inbox);
             log.info("Email sent successfully for order {}", event.orderId());
 
         } catch (Exception e) {

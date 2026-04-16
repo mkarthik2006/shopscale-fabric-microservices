@@ -2,6 +2,7 @@ package com.shopscale.apigateway.filter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -16,8 +17,9 @@ import java.time.Duration;
 import java.time.Instant;
 
 /**
- * PROJECT_RULES.md Week 3: 100 HTTP requests per minute <strong>per client IP</strong>
- * (Redis-backed fixed-minute counter). Uses {@code X-Forwarded-For} when present.
+ * PROJECT_RULES.md Week 3:
+ * 100 HTTP requests per minute per client IP (Redis-backed).
+ * Enhanced with distributed tracing logs (traceId, spanId).
  */
 @Component
 public class DistributedMinuteRateLimitGlobalFilter implements GlobalFilter, Ordered {
@@ -36,10 +38,15 @@ public class DistributedMinuteRateLimitGlobalFilter implements GlobalFilter, Ord
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+
         String path = exchange.getRequest().getPath().value();
-        if (path.startsWith("/actuator/") || path.startsWith("/auth/")) {
+
+        // Skip internal endpoints
+        if (path.startsWith("/actuator/") || path.startsWith("/auth/") || path.startsWith("/fallback/")) {
             return chain.filter(exchange);
         }
+
+        // Apply only for API calls
         if (!path.startsWith("/api/")) {
             return chain.filter(exchange);
         }
@@ -47,6 +54,14 @@ public class DistributedMinuteRateLimitGlobalFilter implements GlobalFilter, Ord
         long minuteBucket = Instant.now().getEpochSecond() / 60;
         String clientKey = "ip:" + clientIp(exchange);
         String redisKey = KEY_PREFIX + minuteBucket + ":" + clientKey;
+
+        // 🔍 TRACE LOG (ENTRY)
+        log.info("Incoming request | path={} ip={} traceId={} spanId={}",
+                path,
+                clientKey,
+                MDC.get("traceId"),
+                MDC.get("spanId")
+        );
 
         return redis.opsForValue().increment(redisKey)
                 .flatMap(count -> {
@@ -57,23 +72,36 @@ public class DistributedMinuteRateLimitGlobalFilter implements GlobalFilter, Ord
                 })
                 .flatMap(count -> {
                     if (count != null && count > MAX_REQUESTS_PER_MINUTE) {
-                        log.warn("Per-minute IP rate limit exceeded | path={} ipKey={} count={}", path, clientKey, count);
+
+                        // 🚨 RATE LIMIT EXCEEDED LOG (AUDIT REQUIRED)
+                        log.warn("Rate limit exceeded | path={} ip={} count={} traceId={} spanId={}",
+                                path,
+                                clientKey,
+                                count,
+                                MDC.get("traceId"),
+                                MDC.get("spanId")
+                        );
+
                         exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
                         return exchange.getResponse().setComplete();
                     }
+
                     return chain.filter(exchange);
                 });
     }
 
     private static String clientIp(ServerWebExchange exchange) {
         String forwarded = exchange.getRequest().getHeaders().getFirst("X-Forwarded-For");
+
         if (forwarded != null && !forwarded.isBlank()) {
             return forwarded.split(",")[0].trim();
         }
+
         InetSocketAddress remote = exchange.getRequest().getRemoteAddress();
         if (remote != null && remote.getAddress() != null) {
             return remote.getAddress().getHostAddress();
         }
+
         return "unknown";
     }
 

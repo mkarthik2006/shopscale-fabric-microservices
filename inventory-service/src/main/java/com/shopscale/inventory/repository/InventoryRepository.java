@@ -1,6 +1,15 @@
 package com.shopscale.inventory.repository;
 
 import com.shopscale.inventory.model.InventoryEntity;
+import com.shopscale.inventory.dto.InventoryResponseDto;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-public interface InventoryRepository extends JpaRepository<InventoryEntity, String> {}
+import java.util.Optional;
+
+public interface InventoryRepository extends JpaRepository<InventoryEntity, String> {
+
+    @Query("SELECT new com.shopscale.inventory.dto.InventoryResponseDto(i.sku, i.stock) FROM InventoryEntity i WHERE i.sku = :sku")
+    Optional<InventoryResponseDto> findDtoBySku(@Param("sku") String sku);
+}

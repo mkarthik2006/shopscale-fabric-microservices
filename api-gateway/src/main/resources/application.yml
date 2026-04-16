@@ -5,11 +5,9 @@ spring:
   application:
     name: api-gateway
 
-  # Centralized configuration import
   config:
     import: optional:configserver:http://${CONFIG_SERVER_HOST:config-server}:8888
 
-  # JAVA 21 VIRTUAL THREADS
   threads:
     virtual:
       enabled: true
@@ -20,14 +18,18 @@ spring:
         locator:
           enabled: true
 
-      # Default timeout for all routes (Resilience Mandate)
       httpclient:
-        connect-timeout: 3000
+        connect-timeout: 5000
         response-timeout: 5000
 
+      default-filters:
+        - TokenRelay
+        - RemoveRequestHeader=Cookie
+
       routes:
+
         - id: keycloak-bff
-          uri: http://${KEYCLOAK_HOST:localhost}:${KEYCLOAK_PORT:8180}
+          uri: http://${KEYCLOAK_HOST:keycloak}:${KEYCLOAK_PORT:8080}
           predicates:
             - Path=/auth/**
           filters:
@@ -38,97 +40,101 @@ spring:
           predicates:
             - Path=/api/products/**
           filters:
+            - StripPrefix=1
             - name: CircuitBreaker
               args:
                 name: productService
                 fallbackUri: forward:/fallback/products
-            - TokenRelay
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userOrIpKeyResolver}"
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
 
         - id: order-service
           uri: lb://order-service
           predicates:
             - Path=/api/orders/**
           filters:
+            - StripPrefix=1
             - name: CircuitBreaker
               args:
                 name: orderService
                 fallbackUri: forward:/fallback/orders
-            - TokenRelay
 
         - id: inventory-service
           uri: lb://inventory-service
           predicates:
             - Path=/api/inventory/**
           filters:
+            - StripPrefix=1
             - name: CircuitBreaker
               args:
                 name: inventoryService
                 fallbackUri: forward:/fallback/inventory
-            - TokenRelay
 
         - id: cart-service
           uri: lb://cart-service
           predicates:
             - Path=/api/cart/**
           filters:
+            - StripPrefix=1
             - name: CircuitBreaker
               args:
                 name: cartService
                 fallbackUri: forward:/fallback/cart
-            - TokenRelay
 
         - id: price-service
           uri: lb://price-service
           predicates:
             - Path=/api/prices/**
           filters:
+            - StripPrefix=1
             - name: CircuitBreaker
               args:
                 name: priceService
                 fallbackUri: forward:/fallback/prices
-            - TokenRelay
 
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://${KEYCLOAK_HOST:localhost}:${KEYCLOAK_PORT:8180}/realms/shopscale
+          issuer-uri: http://${KEYCLOAK_HOST:keycloak}:${KEYCLOAK_PORT:8080}/realms/shopscale
 
-  # Spring Boot 3.x redis prefix
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
+      host: ${REDIS_HOST:redis}
       port: ${REDIS_PORT:6379}
 
   session:
     store-type: redis
-    redis:
-      namespace: spring:session:gateway
 
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+      defaultZone: http://${EUREKA_HOST:discovery-service}:8761/eureka/
 
-# OBSERVABILITY & TRACING
 management:
   endpoints:
     web:
       exposure:
-        include: "health,info,metrics,prometheus"
-  endpoint:
-    health:
-      show-details: always
+        include: health,info,metrics,prometheus
+
   tracing:
     sampling:
       probability: 1.0
-  metrics:
-    tags:
-      application: ${spring.application.name}
 
-# STRUCTURED LOGGING
+  zipkin:
+    tracing:
+      endpoint: http://zipkin:9411/api/v2/spans
+
 logging:
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
   level:
     org.springframework.cloud.gateway: INFO
+
+app:
+  security:
+    cors:
+      allowed-origin-patterns: ${ALLOWED_ORIGIN_PATTERNS:http://localhost:3000}
