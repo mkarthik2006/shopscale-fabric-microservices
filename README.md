@@ -1,589 +1,334 @@
-# 🛒 ShopScale Fabric — Event-Driven Microservices Marketplace
+# 1. Project Title + Short Description
 
-> Enterprise-grade microservices platform built with **Java 21**, **Spring Boot 3.3**, **Kafka**, **Eureka**, **Keycloak**, **Redis**, **Resilience4j**, and **Docker**.  
-> Designed for high scalability, fault tolerance, and cloud-native deployment using asynchronous communication and resilient architecture.
+## ShopScale Fabric — Event-Driven E-Commerce Microservices
 
----
+Production-grade microservices marketplace using Java 21, Spring Boot, Kafka, Keycloak, Redis, and Spring Cloud Gateway.
+All business APIs are exposed through the API Gateway (`/api/*`) and validated with end-to-end runtime checks.
 
-## 📐 Architecture Overview
+## 2. 🚀 Key Features
 
+- API Gateway-first architecture with centralized routing, JWT validation, and rate limiting
+- Event-driven order lifecycle with Kafka (`order.placed`, `inventory.failure`, `order.cancelled`)
+- SAGA-style compensation for inventory failure -> order cancellation flow
+- Outbox pattern in order-service for reliable event publishing
+- Inbox/idempotency pattern in inventory-service and notification-service
+- Circuit breaker + retry + fallback on Cart -> Price integration
+- Distributed tracing with Zipkin and trace/span-aware logs
+- Full stack runnable with `docker compose up --build -d`
+
+## 3. 🏗️ Architecture Overview
+
+Simple flow:
+
+```text
+React UI -> API Gateway -> Product/Order/Price/Cart/Inventory services
+                     \
+                      -> Keycloak (JWT/OIDC)
+
+Order Service -> Kafka(order.placed) -> Inventory Service
+                                      -> Notification Service
+Inventory failure -> Kafka(inventory.failure) -> Order Service
+Order cancellation -> Kafka(order.cancelled) -> Notification Service
 ```
-┌──────────────┐       ┌──────────────────────────────────────────────┐
-│   React UI   │──────▶│            API Gateway (:9080)               │
-│   (:3000)    │       │  JWT Validation · Rate Limiting · Routing    │
-└──────────────┘       └──────┬────┬────┬────┬────┬────┬─────────────┘
-                              │    │    │    │    │    │
-            ┌─────────────────┘    │    │    │    │    └──────────────┐
-            ▼                      ▼    │    ▼    ▼                   ▼
-   ┌────────────────┐  ┌──────────────┐ │ ┌────────────┐  ┌──────────────┐
-   │ Product Service│  │ Order Service│ │ │Cart Service │  │Price Service │
-   │   (MongoDB)    │  │ (PostgreSQL) │ │ │(Resilience) │  │  (Redis)     │
-   │   :9081        │  │   :9082      │ │ │  :9086      │  │  :9085       │
-   └────────────────┘  └──────┬───────┘ │ └──────┬──────┘  └──────────────┘
-                              │         │        │
-                    Kafka ────┤         │   REST (sync)
-                  (Async)     │         │
-            ┌─────────────────┘         │
-            ▼                           ▼
-   ┌──────────────────┐      ┌───────────────────┐
-   │Inventory Service │      │Notification Service│
-   │  (PostgreSQL)    │      │  (PostgreSQL+Mail) │
-   │    :9083         │      │     :9084          │
-   └──────────────────┘      └───────────────────┘
-```
-
-### Mermaid Diagram (Renders on GitHub)
 
 ```mermaid
-graph TB
-    subgraph Frontend
-        REACT["React UI :3000"]
-    end
+graph TD
+  UI["React UI :3000"] --> GW["API Gateway :9080"]
+  GW --> KC["Keycloak :8180"]
+  GW --> PRODUCT["Product Service :9081 (MongoDB)"]
+  GW --> ORDER["Order Service :9082 (PostgreSQL)"]
+  GW --> PRICE["Price Service :9085 (Redis cache)"]
+  GW --> CART["Cart Service :9086"]
+  GW --> INVENTORY["Inventory Service :9083 (PostgreSQL)"]
 
-    subgraph Platform
-        GW["API Gateway :9080<br/>JWT · Rate Limit · Circuit Breaker"]
-        EUREKA["Eureka Discovery :8761"]
-        CONFIG["Config Server :8888"]
-    end
+  ORDER -->|order.placed| KAFKA["Kafka :9092"]
+  KAFKA --> INVENTORY
+  KAFKA --> NOTIFY["Notification Service :9084 (PostgreSQL + SMTP)"]
+  INVENTORY -->|inventory.failure| KAFKA
+  ORDER -->|order.cancelled| KAFKA
+  KAFKA --> ORDER
+  KAFKA --> NOTIFY
 
-    subgraph Services
-        PRODUCT["Product Service :9081<br/>MongoDB"]
-        ORDER["Order Service :9082<br/>PostgreSQL"]
-        INVENTORY["Inventory Service :9083<br/>PostgreSQL"]
-        CART["Cart Service :9086<br/>Resilience4j"]
-        PRICE["Price Service :9085<br/>Redis Cache"]
-        NOTIFY["Notification Service :9084<br/>PostgreSQL + Mail"]
-    end
-
-    subgraph Infrastructure
-        KAFKA["Apache Kafka"]
-        MONGO["MongoDB"]
-        PG["PostgreSQL"]
-        REDIS["Redis"]
-        KC["Keycloak :8180"]
-        ZIPKIN["Zipkin :9411"]
-        MAIL["MailHog :8025"]
-    end
-
-    REACT -->|HTTP| GW
-    GW -->|JWT Validation| KC
-    GW -->|Route| PRODUCT
-    GW -->|Route| ORDER
-    GW -->|Route| INVENTORY
-    GW -->|Route| CART
-    GW -->|Route| PRICE
-
-    CART -->|REST sync| PRICE
-    PRICE -->|Cache| REDIS
-
-    ORDER -->|OrderPlacedEvent| KAFKA
-    KAFKA -->|Consume| INVENTORY
-    KAFKA -->|Consume| NOTIFY
-    INVENTORY -->|InventoryInsufficientEvent| KAFKA
-    KAFKA -->|Consume| ORDER
-    ORDER -->|OrderCancelledEvent| KAFKA
-    KAFKA -->|Consume| NOTIFY
-    NOTIFY -->|SMTP| MAIL
-
-    PRODUCT --> MONGO
-    ORDER --> PG
-    INVENTORY --> PG
-    NOTIFY --> PG
-
-    PRODUCT -.->|Register| EUREKA
-    ORDER -.->|Register| EUREKA
-    INVENTORY -.->|Register| EUREKA
-    CART -.->|Register| EUREKA
-    PRICE -.->|Register| EUREKA
-    NOTIFY -.->|Register| EUREKA
-
-    CONFIG -.->|Config| PRODUCT
-    CONFIG -.->|Config| ORDER
-    CONFIG -.->|Config| INVENTORY
-    CONFIG -.->|Config| CART
-    CONFIG -.->|Config| PRICE
-    CONFIG -.->|Config| NOTIFY
-
-    GW -.->|Traces| ZIPKIN
-    ORDER -.->|Traces| ZIPKIN
-    INVENTORY -.->|Traces| ZIPKIN
+  GW -. traces .-> ZIPKIN["Zipkin :9411"]
+  ORDER -. traces .-> ZIPKIN
+  INVENTORY -. traces .-> ZIPKIN
+  NOTIFY -. traces .-> ZIPKIN
 ```
 
----
-
-## 🛠️ Tech Stack
+## 4. ⚙️ Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| **Language** | Java 21 (Virtual Threads) |
-| **Framework** | Spring Boot 3.3.5, Spring Cloud 2023.0.3 |
-| **API Gateway** | Spring Cloud Gateway (Reactive) |
-| **Service Discovery** | Netflix Eureka |
-| **Centralized Config** | Spring Cloud Config Server (native) |
-| **Security** | Keycloak 24 (OAuth2/JWT), Spring Security |
-| **Messaging** | Apache Kafka (Confluent 7.6.1) |
-| **Databases** | MongoDB 7 (Product), PostgreSQL 16 (Order/Inventory/Notification) |
-| **Caching** | Redis 7 |
-| **Resilience** | Resilience4j (Circuit Breaker, Retry, TimeLimiter) |
-| **Observability** | Zipkin 3, Micrometer, Prometheus metrics |
-| **Email** | MailHog (SMTP testing) |
-| **Frontend** | React 18, Zustand, Axios |
-| **Containerization** | Docker, Docker Compose |
-| **Documentation** | SpringDoc OpenAPI 2.6 (Swagger UI) |
+|---|---|
+| Language | Java 21 |
+| Framework | Spring Boot 3.3.x |
+| Cloud | Spring Cloud Gateway, Eureka, Config Server |
+| Security | Spring Security OAuth2 Resource Server, Keycloak 24 |
+| Messaging | Apache Kafka (Confluent `cp-kafka:7.6.1`) |
+| Databases | MongoDB 7, PostgreSQL 16 |
+| Cache | Redis 7 |
+| Resilience | Resilience4j (CircuitBreaker, Retry, TimeLimiter) |
+| Observability | Micrometer Tracing + Zipkin |
+| Email | MailHog |
+| Containerization | Docker + Docker Compose |
 
----
+## 5. 🔐 Authentication (Keycloak + JWT Flow)
 
-## 🚀 Quick Start
+JWT is issued by Keycloak and validated by API Gateway.
 
-### Prerequisites
-
-- **Docker** ≥ 24.0 & **Docker Compose** ≥ 2.20
-- **8 GB RAM** minimum (recommended 12 GB for all services)
-- Ports available: `3000`, `8180`, `8761`, `8888`, `9080-9086`, `9411`
-
-### One-Command Startup
+Token flow used by frontend and curl:
 
 ```bash
-# Clone the repository
-git clone https://github.com/mkarthik2006/shopscale-fabric-microservices.git
-cd shopscale-fabric-microservices
-
-# Start the entire platform
-docker-compose up --build -d
-
-# Monitor startup progress
-docker-compose logs -f
-```
-
-### Startup Order (Automatic via healthchecks)
-
-```
-1. Zookeeper → Kafka → MongoDB → PostgreSQL → Redis → Keycloak → MailHog → Zipkin
-2. Config Server → Discovery Service
-3. API Gateway → Product → Order → Inventory → Notification → Price → Cart
-4. Frontend
-```
-
-> ⏱️ **First boot takes ~3-5 minutes** (Maven builds + image pulls). Subsequent starts are much faster due to Docker layer caching.
-
-### Verify All Services Are Running
-
-```bash
-# Check all containers
-docker-compose ps
-
-# Check Eureka dashboard — all services should be registered
-open http://localhost:8761
-```
-
----
-
-## 🌐 Access Points
-
-| Service | URL | Notes |
-|---------|-----|-------|
-| **React Frontend** | http://localhost:3000 | Main UI |
-| **API Gateway** | http://localhost:9080 | All API traffic enters here |
-| **Eureka Dashboard** | http://localhost:8761 | Service registry |
-| **Config Server** | http://localhost:8888 | Centralized config |
-| **Keycloak Admin** | http://localhost:8180 | Identity provider |
-| **Zipkin Traces** | http://localhost:9411 | Distributed tracing |
-| **MailHog UI** | http://localhost:8025 | Email testing |
-| **Swagger — Product** | http://localhost:9081/swagger-ui.html | Product API docs |
-| **Swagger — Order** | http://localhost:9082/swagger-ui.html | Order API docs |
-| **Swagger — Price** | http://localhost:9085/swagger-ui.html | Price API docs |
-| **Swagger — Cart** | http://localhost:9086/swagger-ui.html | Cart API docs |
-
----
-
-## 🔐 Authentication (Keycloak)
-
-### Default Users
-
-| Username | Password | Roles |
-|----------|----------|-------|
-| `testuser` | `password` | `ROLE_USER` |
-| `admin` | `admin` | `ROLE_USER`, `ROLE_ADMIN` |
-
-### Get JWT Token
-
-```bash
-# Login via Keycloak (Direct Access Grant)
-curl -s -X POST http://localhost:8180/realms/shopscale/protocol/openid-connect/token \
+TOKEN=$(curl -s -X POST http://localhost:9080/auth/realms/shopscale/protocol/openid-connect/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password" \
-  -d "client_id=shopscale-gateway" \
-  -d "username=testuser" \
-  -d "password=password" | jq -r '.access_token'
+  -d "grant_type=password&client_id=shopscale-gateway&username=testuser&password=password" \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))')
 ```
 
-```bash
-# Store token for subsequent requests
-export TOKEN=$(curl -s -X POST http://localhost:8180/realms/shopscale/protocol/openid-connect/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password&client_id=shopscale-gateway&username=testuser&password=password" | jq -r '.access_token')
-```
+Gateway validates JWT issuer:
 
----
+- `http://keycloak:8080/realms/shopscale` (in-container)
 
-## 📦 Microservices
+## 6. 📦 Microservices Overview
 
-| Service | Port | Database | Communication | Description |
-|---------|------|----------|---------------|-------------|
-| **api-gateway** | 9080 | Redis (rate limiting) | REST (inbound) | JWT validation, routing, rate limiting, circuit breakers |
-| **config-server** | 8888 | — | — | Centralized configuration (native file-based) |
-| **discovery-service** | 8761 | — | — | Eureka service registry |
-| **product-service** | 9081 | MongoDB | REST | Product catalogue CRUD |
-| **order-service** | 9082 | PostgreSQL | REST + Kafka Producer/Consumer | Order management, SAGA orchestration |
-| **inventory-service** | 9083 | PostgreSQL | Kafka Consumer/Producer | Stock deduction, SAGA compensation |
-| **notification-service** | 9084 | PostgreSQL | Kafka Consumer + SMTP | Email notifications with idempotency |
-| **price-service** | 9085 | Redis (cache) | REST | Pricing engine with Redis caching |
-| **cart-service** | 9086 | — | REST (→ Price Service) | Cart aggregation with circuit breaker |
+| Service | Host Port | Service Port | Data Store | Responsibility |
+|---|---:|---:|---|---|
+| api-gateway | 9080 | 8080 | Redis | Auth validation, `/api/*` routing, circuit breaker, rate limiting |
+| config-server | 8888 | 8888 | File-backed config repo | Centralized config |
+| discovery-service | 8761 | 8761 | — | Service registry |
+| product-service | 9081 | 8081 | MongoDB (`productdb`) | Product APIs (`/api/products`) |
+| order-service | 9082 | 8082 | PostgreSQL (`orderdb`) | Order APIs, outbox publisher, compensation consumer |
+| inventory-service | 9083 | 8083 | PostgreSQL (`inventorydb`) | Inventory APIs, `order.placed` consumer |
+| notification-service | 9084 | 8084 | PostgreSQL (`notificationdb`) | Notification consumers + email |
+| price-service | 9085 | 8085 | Redis cache | Price APIs |
+| cart-service | 9086 | 8086 | — | Cart aggregation and resilience fallback |
 
----
+## 7. 🔄 Event-Driven Architecture (CRITICAL)
 
-## 📡 Event-Driven Architecture (SAGA Pattern)
+### Order -> Kafka -> Inventory -> Notification
 
-### Happy Path: Order → Inventory → Notification
+1. Client calls `POST /api/orders` via gateway
+2. order-service stores order + outbox record (`outbox_event`) in same transaction
+3. `OutboxPublisher` publishes `order.placed`
+4. inventory-service consumes `order.placed`, reserves stock
+5. notification-service consumes `order.placed`, sends confirmation email
 
-```
-1. User places order via POST /api/orders
-2. Order Service saves order (status=PLACED), publishes OrderPlacedEvent to Kafka
-3. Inventory Service consumes event, deducts stock
-4. Notification Service consumes event, sends confirmation email
-```
+### SAGA Flow
 
-### Compensation Path: Inventory Failure → Order Cancel → Notification
+Happy path:
 
-```
-1. Inventory Service detects insufficient stock
-2. Publishes InventoryInsufficientEvent to Kafka
-3. Order Service consumes event, sets order status=CANCELLED
-4. Publishes OrderCancelledEvent to Kafka
-5. Notification Service sends cancellation email
-```
+- Order `PLACED` -> inventory reserve success -> notification sent
 
-### Event Structure
+Compensation path:
 
-```json
-{
-  "eventId": "550e8400-e29b-41d4-a716-446655440000",
-  "eventType": "ORDER_PLACED",
-  "occurredAt": "2026-04-06T10:30:00Z",
-  "orderId": "123e4567-e89b-12d3-a456-426614174000",
-  "userId": "testuser",
-  "items": [
-    { "sku": "P1", "quantity": 2, "unitPrice": 199.99 }
-  ],
-  "totalAmount": 399.98,
-  "currency": "USD"
-}
-```
+- inventory-service publishes `inventory.failure`
+- order-service (`InventoryFailureConsumer`) marks order `CANCELLED` and publishes `order.cancelled`
+- notification-service sends cancellation email
 
-### Kafka Topics
+### Kafka Topics (implemented)
 
-| Topic | Producer | Consumer(s) |
-|-------|----------|-------------|
-| `order.placed` | Order Service | Inventory Service, Notification Service |
-| `inventory.failure` | Inventory Service | Order Service |
-| `order.cancelled` | Order Service | Notification Service |
+| Topic | Produced By | Consumed By |
+|---|---|---|
+| `order.placed` | order-service | inventory-service, notification-service, order-service saga listener |
+| `inventory.failure` | inventory-service | order-service |
+| `order.cancelled` | order-service | notification-service, order-service saga listener |
 
-### Reliability Guarantees
+### Outbox + Inbox (code-backed)
 
-- **At-least-once delivery**: Kafka `acks=all`, `enable.idempotence=true`
-- **Outbox pattern (order-service)**: `orders` + `outbox_event` persisted in the same transaction; scheduled publisher emits and marks `SENT`
-- **Inbox pattern (inventory-service, notification-service)**: `inbox_event` table stores event before processing and marks `PROCESSED` after successful handling
-- **Duplicate protection**: consumers deduplicate by `eventId` and skip already `PROCESSED` events
-- **Dead Letter Queue**: Failed messages → `.DLT` topics after 3 retries
+- Outbox (`order-service`):
+  - Entity: `outbox_event`
+  - Fields include `payload`, `status`, `retryCount`, `lastError`
+  - Publisher marks status from `PENDING` -> `SENT`
+- Inbox (`inventory-service`, `notification-service`):
+  - Entity: `inbox_event`
+  - Tracks event processing state for idempotency (`RECEIVED`/`PROCESSED`)
 
-### Outbox + Inbox Flow
+## 8. ⚡ Resilience & Reliability
 
-```
-1. POST /api/orders persists Order + Outbox row (PENDING) in one transaction
-2. OutboxPublisher polls pending rows and publishes ORDER_PLACED to Kafka
-3. Inventory consumes event, inserts inbox_event(RECEIVED), updates stock, marks PROCESSED
-4. Notification consumes event, inserts inbox_event(RECEIVED), sends mail, marks PROCESSED
-5. Duplicate redelivery is ignored using inbox_event(event_id) state
-```
+### Circuit Breaker (Cart -> Price)
 
----
+Implemented in `PriceClientService`:
 
-## ⚡ Resiliency
+- `@CircuitBreaker(name = "priceService", fallbackMethod = "fallbackPrice")`
+- `@Retry(name = "priceService", fallbackMethod = "fallbackPrice")`
+- Fallback returns `price=0` and `priceSource=FALLBACK`
 
-### Circuit Breaker (Cart → Price Service)
+Configured resilience values (`config-repo/cart-service.yml`):
 
-```
-@CircuitBreaker(name = "priceService", fallbackMethod = "fallbackPrice")
-@Retry(name = "priceService")
-```
+- Sliding window: 10
+- Failure threshold: 50%
+- Open state wait: 10s
+- Retry attempts: 3
+- Time limiter: 4s
 
-| Parameter | Value |
-|-----------|-------|
-| Failure rate threshold | 50% |
-| Sliding window size | 10 calls |
-| Wait duration in open state | 10 seconds |
-| Retry max attempts | 3 |
-| Retry wait duration | 500ms |
-| Timeout | 4 seconds |
+### Gateway Reliability
 
-### Gateway Circuit Breakers
-
-All 5 gateway routes have dedicated circuit breakers with fallback URIs returning structured 503 responses.
+- Route-level circuit breakers with fallback endpoints for product/order/inventory/cart/price
+- Gateway time limiter configured to 6s per route instance
 
 ### Rate Limiting
 
-- **Redis-backed** via Spring Cloud Gateway `RequestRateLimiter`
-- **100 requests/second** per authenticated user or IP address
-- Returns HTTP `429 Too Many Requests` when exceeded
+Implemented as global gateway filter backed by Redis:
 
----
+- Keyed by minute bucket + client IP
+- Limit: 100 requests/minute for `/api/*`
+- Exceeding limit returns `429 Too Many Requests`
 
-## 🧪 Running Tests
+## 9. 🔍 Observability
+
+- Zipkin enabled (`http://localhost:9411`)
+- Tracing sampling set to `1.0`
+- Log formats include trace and span IDs in gateway and services
+- Event-flow traces/logs validated with runtime evidence
+
+## 10. 🐳 Docker Setup
+
+One-command startup:
 
 ```bash
-# Run all unit tests
-mvn test
-
-# Run tests for a specific service
-mvn test -pl cart-service
-
-# Run tests for product-service
-mvn test -pl product-service
-
-# Run tests for order-service
-mvn test -pl order-service
+docker compose up --build -d
 ```
 
-### Test Coverage
+Startup order is enforced with health checks and `depends_on` conditions:
 
-| Service | Tests | Coverage |
-|---------|-------|----------|
-| cart-service | `CartControllerTest`, `PriceClientServiceTest` | Controller + Service + Resilience |
-| product-service | `ProductServiceTest` | Full CRUD |
-| order-service | `OrderServiceTest`, `InventoryFailureConsumerTest` | Service + SAGA Consumer |
-| inventory-service | `OrderPlacedConsumerTest` | Kafka Consumer + Idempotency |
-| notification-service | `OrderNotificationConsumerTest` | Email + Idempotency |
-| price-service | `PriceServiceTest` | Pricing Logic + Cache |
+1. Infra: zookeeper, kafka, mongodb, postgres, redis, zipkin, keycloak, mailhog
+2. Platform: config-server, discovery-service
+3. Business services: gateway, product, order, inventory, notification, price, cart
+4. Frontend
 
-### Failure Testing (SAGA Validation)
+Health verification:
 
 ```bash
-# 1. Stop Inventory Service
-docker-compose stop inventory-service
+docker compose ps
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+```
 
-# 2. Place an order (it will be saved as PLACED)
-curl -X POST http://localhost:9080/api/orders \
+## 11. 🌐 Access URLs
+
+| Component | URL |
+|---|---|
+| Frontend | `http://localhost:3000` |
+| API Gateway | `http://localhost:9080` |
+| Keycloak | `http://localhost:8180` |
+| Eureka | `http://localhost:8761` |
+| Config Server | `http://localhost:8888` |
+| Zipkin | `http://localhost:9411` |
+| MailHog | `http://localhost:8025` |
+| Product Swagger | `http://localhost:9081/swagger-ui.html` |
+| Order Swagger | `http://localhost:9082/swagger-ui.html` |
+| Price Swagger | `http://localhost:9085/swagger-ui.html` |
+| Cart Swagger | `http://localhost:9086/swagger-ui.html` |
+
+## 12. 📡 API Examples (Gateway Endpoints Only)
+
+All API calls below are gateway-only (`http://localhost:9080/api/*`).
+
+```bash
+# Products
+curl -i http://localhost:9080/api/products
+curl -i -X POST http://localhost:9080/api/products \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"userId":"testuser","items":[{"sku":"P1","quantity":1,"unitPrice":199.99}],"totalAmount":199.99,"currency":"USD"}'
+  -d '{"sku":"P100","name":"Product 100","price":199.99,"stock":20,"active":true}'
 
-# 3. Restart Inventory Service — Kafka will redeliver the event
-docker-compose start inventory-service
+# Prices
+curl -i http://localhost:9080/api/prices -H "Authorization: Bearer $TOKEN"
 
-# 4. Check order status — should process or trigger SAGA compensation
-curl http://localhost:9080/api/orders?userId=testuser \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### Final Verification Steps
-
-```bash
-# 1) Start full platform
-docker-compose up --build -d
-
-# 2) Run test suite (unit + integration)
-mvn test
-
-# 3) Place one order
-curl -X POST http://localhost:9080/api/orders \
+# Cart
+curl -i "http://localhost:9080/api/cart?userId=u1&sku=P1" -H "Authorization: Bearer $TOKEN"
+curl -i -X POST http://localhost:9080/api/cart \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"userId":"testuser","items":[{"sku":"P1","quantity":1,"unitPrice":199.99}],"totalAmount":199.99,"currency":"USD"}'
+  -d '{"userId":"u1","sku":"P1"}'
 
-# 4) Verify outbox/inbox transitions in DB (example with psql)
-# outbox_event in orderdb should move PENDING -> SENT
-# inbox_event in inventorydb/notificationdb should become PROCESSED
-
-# 5) Validate tracing
-open http://localhost:9411
-```
-
----
-
-## 📑 API Examples
-
-### Products (Public — No Auth Required)
-
-```bash
-# List all products
-curl http://localhost:9080/api/products
-
-# Create a product
-curl -X POST http://localhost:9080/api/products \
-  -H "Content-Type: application/json" \
-  -d '{"sku":"P1","name":"Enterprise Widget","price":199.99,"stock":100,"active":true}'
-
-# Get product by ID
-curl http://localhost:9080/api/products/{id}
-
-# Update product
-curl -X PUT http://localhost:9080/api/products/{id} \
-  -H "Content-Type: application/json" \
-  -d '{"sku":"P1","name":"Updated Widget","price":249.99,"stock":50,"active":true}'
-
-# Delete product
-curl -X DELETE http://localhost:9080/api/products/{id}
-```
-
-### Orders (Authenticated)
-
-```bash
-# Place order (triggers Kafka SAGA)
-curl -X POST http://localhost:9080/api/orders \
+# Orders
+curl -i -X POST http://localhost:9080/api/orders \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "userId": "testuser",
-    "items": [
-      {"sku": "P1", "quantity": 2, "unitPrice": 199.99}
-    ],
-    "totalAmount": 399.98,
-    "currency": "USD"
-  }'
+  -d '{"userId":"u1","currency":"USD","totalAmount":199.99,"items":[{"sku":"P1","quantity":1,"unitPrice":199.99}]}'
 
-# Get orders by user
-curl http://localhost:9080/api/orders?userId=testuser \
-  -H "Authorization: Bearer $TOKEN"
-
-# Get order by ID
-curl http://localhost:9080/api/orders/{orderId} \
-  -H "Authorization: Bearer $TOKEN"
+# Inventory
+curl -i http://localhost:9080/api/inventory -H "Authorization: Bearer $TOKEN"
+curl -i http://localhost:9080/api/inventory/P1 -H "Authorization: Bearer $TOKEN"
 ```
 
-### Cart (Authenticated)
+## 13. 🧪 Validation / Testing
+
+### Curl validation (gateway-only)
+
+Verified statuses from runtime validation:
+
+| Endpoint | Method | Status |
+|---|---|---:|
+| `/api/products` | GET | 200 |
+| `/api/products` | POST | 200 |
+| `/api/prices` | GET | 200 |
+| `/api/cart` | GET | 200 |
+| `/api/cart` | POST | 200 |
+| `/api/orders` | POST | 201 |
+| `/api/inventory` | GET | 200 |
+
+### Event flow verification
+
+Verified with runtime logs and DB state:
+
+- Order persisted and outbox published (`Outbox event published successfully`)
+- Inventory consumer processed order (`Inventory reserved successfully`)
+- Notification consumer sent email (`Email sent successfully`)
+
+### Resilience verification
+
+With `price-service` stopped:
 
 ```bash
-# Get cart total for a product
-curl "http://localhost:9080/api/v1/cart/testuser/total?sku=P1" \
-  -H "Authorization: Bearer $TOKEN"
+docker stop shopscale-fabric-price-service-1
+curl -i "http://localhost:9080/api/cart/u-resilience/total?sku=P1" -H "Authorization: Bearer $TOKEN"
+docker start shopscale-fabric-price-service-1
 ```
 
-### Prices
+Observed:
 
-```bash
-# Get price by SKU
-curl http://localhost:9080/api/v1/prices/P1 \
-  -H "Authorization: Bearer $TOKEN"
-```
+- `200 OK`
+- Response includes `"priceSource":"FALLBACK"`
 
-### Standard Response Format
+## 14. 📊 Non-Functional Requirements
 
-All API responses follow a unified envelope:
+| Requirement | Implementation Evidence |
+|---|---|
+| Scalability | Stateless services, Dockerized deployment, Java 21 virtual threads enabled |
+| Availability | Gateway circuit breakers + fallback endpoints, service health checks, restart policies |
+| Consistency | Eventual consistency with Kafka + SAGA compensation |
+| Reliability | Outbox publish retry tracking, inbox idempotency tracking |
+| Security | JWT validation at gateway, Keycloak OIDC, role-aware security config |
+| Performance | Redis cache in price-service, Redis-backed gateway rate limiter |
+| Observability | Zipkin tracing + trace/span log correlation |
 
-```json
-{
-  "status": "SUCCESS",
-  "code": 200,
-  "message": "Request successful",
-  "data": { ... },
-  "timestamp": "2026-04-06T10:30:00.000Z"
-}
-```
+## 15. 🎥 Demo Flow (Evaluator Script)
 
----
+1. Start stack:
+   - `docker compose up --build -d`
+2. Show healthy services:
+   - `docker compose ps`
+3. Generate token via gateway `/auth/.../token`
+4. Run gateway API checks:
+   - products, prices, cart, orders, inventory
+5. Place an order and show:
+   - order `201` response
+   - inventory stock decrease for `P1`
+   - notification logs showing email sent
+6. Resilience test:
+   - stop price-service
+   - call cart endpoint and show fallback response (`priceSource=FALLBACK`)
+7. Rate limit test:
+   - burst `/api/products` and show `429` count
+8. Trace check:
+   - open Zipkin and show recent traces and participating services
 
-## 🔍 Observability
+## 16. ⚠️ Troubleshooting
 
-### Distributed Tracing (Zipkin)
-
-- **URL**: http://localhost:9411
-- **Sampling**: 100% (`probability: 1.0`)
-- **Trace flow**: Gateway → Order Service → Kafka → Inventory Service → Notification Service
-
-### Structured Logging
-
-All services use correlated trace/span IDs:
-
-```
-INFO [order-service,abc123traceId,xyz789spanId] Placing order for user: testuser
-```
-
-### Health & Metrics
-
-```bash
-# Health check (any service)
-curl http://localhost:9081/actuator/health
-
-# Prometheus metrics
-curl http://localhost:9081/actuator/prometheus
-
-# Service info
-curl http://localhost:9081/actuator/info
-```
-
----
-
-## 🌍 Environment Variables
-
-All configuration is externalized. No hardcoded values.
-
-| Variable | Default | Used By |
-|----------|---------|---------|
-| `SERVER_PORT` | Per service | All services |
-| `CONFIG_SERVER_HOST` | `localhost` | All services |
-| `EUREKA_HOST` | `localhost` | All services |
-| `DB_HOST` | `localhost` / `postgres` | Order, Inventory, Notification |
-| `DB_NAME` | Service-specific | Order, Inventory, Notification |
-| `DB_USER` | `shopscale` | Order, Inventory, Notification |
-| `DB_PASS` | `shopscale` | Order, Inventory, Notification |
-| `MONGODB_URI` | `mongodb://localhost:27017/productdb` | Product Service |
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Order, Inventory, Notification |
-| `REDIS_HOST` | `localhost` | Price Service, API Gateway |
-| `REDIS_PORT` | `6379` | Price Service, API Gateway |
-| `KEYCLOAK_HOST` | `keycloak` | API Gateway |
-| `KEYCLOAK_PORT` | `8080` | API Gateway |
-| `MAIL_HOST` | `mailhog` | Notification Service |
-| `MAIL_PORT` | `1025` | Notification Service |
-| `REACT_APP_GATEWAY_URL` | _(empty — uses nginx proxy)_ | Frontend |
-| `REACT_APP_KEYCLOAK_URL` | `http://localhost:8180` | Frontend |
-
----
-
-## 🐳 Docker Services
-
-```bash
-# Start all services
-docker-compose up --build -d
-
-# Stop all services
-docker-compose down
-
-# View logs for a specific service
-docker-compose logs -f order-service
-
-# Restart a single service
-docker-compose restart inventory-service
-
-# Scale a service (horizontal scaling)
-docker-compose up --scale product-service=3 -d
-```
-
----
-
-## 📊 Non-Functional Requirements
-
-| Requirement | Implementation |
-|-------------|---------------|
-| **Scalability** | Stateless services, horizontal scaling via Docker |
-| **Availability** | Circuit breakers, Kafka recovery, `restart: on-failure` |
-| **Consistency** | Eventual consistency via SAGA choreography |
-| **Idempotency** | Database-backed processed event tracking |
-| **Performance** | Java 21 Virtual Threads, Redis caching, connection pooling |
-| **Security** | Keycloak JWT at gateway, RBAC, rate limiting |
-| **Observability** | Zipkin tracing, Prometheus metrics, structured logging |
-
----
-
-## 📄 License
-
-This project is for educational and demonstration purposes.
+| Symptom | Check | Fix |
+|---|---|---|
+| `401 Unauthorized` | Token missing/expired | Regenerate `TOKEN` via gateway auth endpoint |
+| `500` on gateway API | Downstream container unhealthy | `docker compose ps`, restart affected service |
+| Order events not progressing | Kafka not running | `docker compose up -d kafka` |
+| No emails visible | Notification/mailhog not healthy | Check `notification-service` and `mailhog` logs |
+| No traces in Zipkin | Service restart during call window | Re-run call, then refresh `http://localhost:9411` |

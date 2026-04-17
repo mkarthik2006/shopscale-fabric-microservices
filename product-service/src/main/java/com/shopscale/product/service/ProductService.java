@@ -51,18 +51,18 @@ public class ProductService {
         return repo.save(product);
     }
 
-    // ✅ UPDATE
+    // ✅ UPDATE (partial-update safe: only overwrite fields the caller supplied)
     public Product update(String id, Product req) {
         log.info("Updating product id={}", id);
 
         Product p = repo.findById(id)
                 .orElseThrow(() -> new java.util.NoSuchElementException("Product not found with id: " + id));
 
-        p.setName(req.getName());
-        p.setSku(req.getSku());
-        p.setPrice(req.getPrice());
-        p.setStock(req.getStock());
-        p.setActive(req.getActive());
+        if (req.getName() != null)   p.setName(req.getName());
+        if (req.getSku() != null)    p.setSku(req.getSku());
+        if (req.getPrice() != null)  p.setPrice(req.getPrice());
+        if (req.getStock() != null)  p.setStock(req.getStock());
+        if (req.getActive() != null) p.setActive(req.getActive());
 
         return repo.save(p);
     }

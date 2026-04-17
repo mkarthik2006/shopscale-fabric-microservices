@@ -16,9 +16,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/v1/cart")
+@RequestMapping({"/api/cart", "/api/v1/cart"})
 @RequiredArgsConstructor
 @Validated
 @Slf4j
@@ -26,6 +27,21 @@ import org.springframework.web.bind.annotation.*;
 public class CartController {
 
     private final PriceClientService priceClientService;
+
+    public record CartRequest(@NotBlank String userId, @NotBlank String sku) {}
+
+    @GetMapping(produces = "application/json")
+    public ResponseEntity<StandardResponse<CartTotalResponseDto>> totalByQuery(
+            @RequestParam @NotBlank(message = "User ID cannot be blank") String userId,
+            @RequestParam @NotBlank(message = "SKU cannot be blank") String sku) {
+        return total(userId, sku);
+    }
+
+    @PostMapping(consumes = "application/json", produces = "application/json")
+    public ResponseEntity<StandardResponse<CartTotalResponseDto>> totalByBody(
+            @Valid @RequestBody CartRequest request) {
+        return total(request.userId(), request.sku());
+    }
 
     @GetMapping(value = "/{userId}/total", produces = "application/json")
     @Operation(

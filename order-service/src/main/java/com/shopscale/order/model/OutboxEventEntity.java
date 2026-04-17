@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
@@ -29,7 +28,6 @@ public class OutboxEventEntity {
     @Column(nullable = false)
     private String eventType;
 
-    @Lob
     @Column(nullable = false, columnDefinition = "TEXT")
     private String payload;
 

@@ -6,10 +6,12 @@ import com.shopscale.order.model.OutboxStatus;
 import com.shopscale.order.repository.OutboxEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -26,6 +28,10 @@ public class OutboxPublisher {
     private final OrderOutboxMapper outboxMapper;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ExecutorService executorService;
+    // Self-reference via ObjectProvider so @Transactional on publishSingleEvent
+    // is actually honored when invoked from the scheduler -> executor lambda.
+    // A direct `this.publishSingleEvent(...)` call would bypass Spring's proxy.
+    private final ObjectProvider<OutboxPublisher> selfProvider;
 
     @Value("${app.kafka.topic.order-placed:order.placed}")
     private String orderPlacedTopic;
@@ -36,26 +42,31 @@ public class OutboxPublisher {
     public OutboxPublisher(OutboxEventRepository outboxEventRepository,
                            OrderOutboxMapper outboxMapper,
                            KafkaTemplate<String, Object> kafkaTemplate,
-                           ExecutorService executorService) {
+                           ExecutorService executorService,
+                           ObjectProvider<OutboxPublisher> selfProvider) {
         this.outboxEventRepository = outboxEventRepository;
         this.outboxMapper = outboxMapper;
         this.kafkaTemplate = kafkaTemplate;
         this.executorService = executorService;
+        this.selfProvider = selfProvider;
     }
 
     @Scheduled(fixedDelayString = "${app.outbox.publisher.fixed-delay-ms:1000}")
+    @Transactional(readOnly = true)
     public void publishPendingEvents() {
         List<OutboxEventEntity> pending = outboxEventRepository.findTop100ByStatusOrderByCreatedAtAsc(OutboxStatus.PENDING);
         if (pending.isEmpty()) {
             return;
         }
 
+        OutboxPublisher self = selfProvider.getObject();
         for (OutboxEventEntity event : pending) {
-            executorService.submit(() -> publishSingleEvent(event.getId()));
+            java.util.UUID id = event.getId();
+            executorService.submit(() -> self.publishSingleEvent(id));
         }
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void publishSingleEvent(java.util.UUID outboxId) {
         OutboxEventEntity event = outboxEventRepository.findById(outboxId).orElse(null);
         if (event == null || event.getStatus() != OutboxStatus.PENDING) {

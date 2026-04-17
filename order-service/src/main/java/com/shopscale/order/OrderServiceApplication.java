@@ -4,7 +4,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.shopscale.order", "com.shopscale.common"})
 @EnableJpaRepositories(basePackages = "com.shopscale.order.repository")
 @EnableScheduling
 public class OrderServiceApplication {

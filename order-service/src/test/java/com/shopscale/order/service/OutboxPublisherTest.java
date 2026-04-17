@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -25,6 +26,7 @@ import java.util.concurrent.Executors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,7 +48,10 @@ class OutboxPublisherTest {
     @BeforeEach
     void setUp() {
         executorService = Executors.newSingleThreadExecutor();
-        publisher = new OutboxPublisher(outboxEventRepository, outboxMapper, kafkaTemplate, executorService);
+        @SuppressWarnings("rawtypes")
+        ObjectProvider selfProvider = org.mockito.Mockito.mock(ObjectProvider.class);
+        publisher = new OutboxPublisher(outboxEventRepository, outboxMapper, kafkaTemplate, executorService, selfProvider);
+        lenient().when(selfProvider.getObject()).thenReturn(publisher);
         ReflectionTestUtils.setField(publisher, "orderPlacedTopic", "order.placed");
         ReflectionTestUtils.setField(publisher, "sendTimeoutSeconds", 2L);
     }

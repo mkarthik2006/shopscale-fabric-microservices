@@ -1,18 +1,21 @@
 import { create } from 'zustand';
 import api from '../services/api';
+import { showSuccessToast } from '../utils/toast';
 
 const useStore = create((set, get) => ({
   // Products
   products: [],
   productsLoading: false,
+  productsError: '',
   fetchProducts: async () => {
-    set({ productsLoading: true });
+    set({ productsLoading: true, productsError: '' });
     try {
       const res = await api.get('/api/products');
-      set({ products: res.data, productsLoading: false });
+      const products = Array.isArray(res.data) ? res.data : [];
+      set({ products, productsLoading: false });
     } catch (err) {
       console.error('Failed to fetch products:', err);
-      set({ productsLoading: false });
+      set({ productsLoading: false, productsError: 'Failed to load products.' });
     }
   },
 
@@ -26,14 +29,19 @@ const useStore = create((set, get) => ({
     } else {
       set({ cartItems: [...items, { ...product, quantity: 1 }] });
     }
+    showSuccessToast(`${product.name} added to cart`);
   },
   removeFromCart: (sku) => {
+    const removed = get().cartItems.find(i => i.sku === sku);
     set({ cartItems: get().cartItems.filter(i => i.sku !== sku) });
+    showSuccessToast(`${removed?.name || sku} removed from cart`);
   },
   clearCart: () => set({ cartItems: [] }),
 
   // Orders
   orders: [],
+  ordersLoading: false,
+  ordersError: '',
   orderLoading: false,
   placeOrder: async (userId) => {
     set({ orderLoading: true });
@@ -60,11 +68,14 @@ const useStore = create((set, get) => ({
     }
   },
   fetchOrders: async (userId) => {
+    set({ ordersLoading: true, ordersError: '' });
     try {
       const res = await api.get(`/api/orders?userId=${userId}`);
-      set({ orders: res.data });
+      const orders = Array.isArray(res.data) ? res.data : [];
+      set({ orders, ordersLoading: false });
     } catch (err) {
       console.error('Failed to fetch orders:', err);
+      set({ ordersLoading: false, ordersError: 'Failed to fetch orders.' });
     }
   },
 }));

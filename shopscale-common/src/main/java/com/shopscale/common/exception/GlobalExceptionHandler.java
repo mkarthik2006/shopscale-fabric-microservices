@@ -12,6 +12,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -38,6 +39,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(StandardResponse.failure(ex.getMessage(), 404));
+    }
+
+    // Maps Optional#orElseThrow() and similar lookups to a proper 404 instead
+    // of leaking as a generic 500 via the catch-all handler.
+    @ExceptionHandler(NoSuchElementException.class)
+    public ResponseEntity<StandardResponse<Object>> handleNoSuchElement(NoSuchElementException ex) {
+        String message = ex.getMessage() != null ? ex.getMessage() : "Resource not found";
+        log.warn("Resource Not Found: {} traceId={} spanId={}",
+                message,
+                MDC.get("traceId"),
+                MDC.get("spanId"));
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(StandardResponse.failure(message, 404));
     }
 
     @ExceptionHandler(BusinessException.class)

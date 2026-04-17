@@ -49,7 +49,10 @@ public class OrderService {
         return saved;
     }
     
-    public OrderEntity getById(UUID id) { return repository.findById(id).orElseThrow(); }
+    public OrderEntity getById(UUID id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new java.util.NoSuchElementException("Order not found with id: " + id));
+    }
     public List<OrderEntity> byUser(String userId) { return repository.findByUserId(userId); }
     public List<OrderResponseDto> byUserSummaries(String userId) { return repository.findOrderSummariesByUser(userId); }
 }

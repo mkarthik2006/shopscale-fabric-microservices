@@ -56,10 +56,15 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // ✅ PUBLIC PRODUCT API (IMPORTANT)
-                        .pathMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                        .pathMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
 
                         // ✅ SECURED BUSINESS APIs
-                        .pathMatchers("/api/orders/**", "/api/inventory/**", "/api/cart/**").authenticated()
+                        .pathMatchers(
+                                "/api/orders", "/api/orders/**",
+                                "/api/inventory", "/api/inventory/**",
+                                "/api/cart", "/api/cart/**",
+                                "/api/prices", "/api/prices/**"
+                        ).authenticated()
 
                         // ✅ DEFAULT RULE
                         .anyExchange().authenticated()

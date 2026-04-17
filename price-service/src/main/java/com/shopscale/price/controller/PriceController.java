@@ -17,9 +17,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/prices")
+@RequestMapping({"/api/prices", "/api/v1/prices"})
 @RequiredArgsConstructor
 @Validated
 @Slf4j
@@ -27,6 +28,16 @@ import org.springframework.web.bind.annotation.*;
 public class PriceController {
 
     private final PriceService priceService;
+
+    @GetMapping(produces = "application/json")
+    public ResponseEntity<StandardResponse<List<PriceResponseDto>>> getDefaultPrices() {
+        List<PriceResponseDto> prices = List.of(
+                priceService.getPrice("P1"),
+                priceService.getPrice("P2"),
+                priceService.getPrice("P3")
+        );
+        return ResponseEntity.ok(StandardResponse.success(prices));
+    }
 
     @GetMapping(value = "/{sku}", produces = "application/json")
     @Operation(

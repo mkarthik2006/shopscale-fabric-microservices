@@ -29,7 +29,7 @@ public class PriceClientService {
     private String priceServiceUrl;
 
     
-    @Retry(name = "priceService")
+    @Retry(name = "priceService", fallbackMethod = "fallbackPrice")
     @CircuitBreaker(name = "priceService", fallbackMethod = "fallbackPrice")
     public PriceResponseDto getPrice(String sku) {
 

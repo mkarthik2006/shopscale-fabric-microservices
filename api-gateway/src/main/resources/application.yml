@@ -16,7 +16,7 @@ spring:
     gateway:
       discovery:
         locator:
-          enabled: true
+          enabled: false
 
       httpclient:
         connect-timeout: 5000
@@ -24,10 +24,13 @@ spring:
 
       default-filters:
         - TokenRelay
-        - RemoveRequestHeader=Cookie
 
       routes:
 
+        # BFF: browser hits /auth/** on the gateway; StripPrefix=1 forwards
+        # /realms/... to Keycloak. This is the ONLY route that strips the
+        # prefix — downstream service controllers are mapped at /api/** and
+        # must receive the full path unchanged.
         - id: keycloak-bff
           uri: http://${KEYCLOAK_HOST:keycloak}:${KEYCLOAK_PORT:8080}
           predicates:
@@ -36,60 +39,57 @@ spring:
             - StripPrefix=1
 
         - id: product-service
-          uri: lb://product-service
+          uri: http://product-service:8081
           predicates:
+            - Path=/api/products
             - Path=/api/products/**
           filters:
-            - StripPrefix=1
             - name: CircuitBreaker
               args:
                 name: productService
                 fallbackUri: forward:/fallback/products
-            - name: RequestRateLimiter
-              args:
-                key-resolver: "#{@userOrIpKeyResolver}"
-                redis-rate-limiter.replenishRate: 10
-                redis-rate-limiter.burstCapacity: 20
 
         - id: order-service
-          uri: lb://order-service
+          uri: http://order-service:8082
           predicates:
+            - Path=/api/orders
             - Path=/api/orders/**
           filters:
-            - StripPrefix=1
             - name: CircuitBreaker
               args:
                 name: orderService
                 fallbackUri: forward:/fallback/orders
 
         - id: inventory-service
-          uri: lb://inventory-service
+          uri: http://inventory-service:8083
           predicates:
+            - Path=/api/inventory
             - Path=/api/inventory/**
           filters:
-            - StripPrefix=1
             - name: CircuitBreaker
               args:
                 name: inventoryService
                 fallbackUri: forward:/fallback/inventory
 
         - id: cart-service
-          uri: lb://cart-service
+          uri: http://cart-service:8086
           predicates:
+            - Path=/api/cart
             - Path=/api/cart/**
           filters:
-            - StripPrefix=1
+            - RewritePath=/api/cart(?<remaining>/?.*), /api/v1/cart${remaining}
             - name: CircuitBreaker
               args:
                 name: cartService
                 fallbackUri: forward:/fallback/cart
 
         - id: price-service
-          uri: lb://price-service
+          uri: http://price-service:8085
           predicates:
+            - Path=/api/prices
             - Path=/api/prices/**
           filters:
-            - StripPrefix=1
+            - RewritePath=/api/prices(?<remaining>/?.*), /api/v1/prices${remaining}
             - name: CircuitBreaker
               args:
                 name: priceService
@@ -133,6 +133,20 @@ logging:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
   level:
     org.springframework.cloud.gateway: INFO
+
+resilience4j:
+  timelimiter:
+    instances:
+      productService:
+        timeout-duration: 6s
+      orderService:
+        timeout-duration: 6s
+      inventoryService:
+        timeout-duration: 6s
+      cartService:
+        timeout-duration: 6s
+      priceService:
+        timeout-duration: 6s
 
 app:
   security:
