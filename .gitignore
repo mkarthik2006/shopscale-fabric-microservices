@@ -21,3 +21,4 @@ logs/
 # OS
 Thumbs.db
 frontend/build/
+frontend/package-lock.json
