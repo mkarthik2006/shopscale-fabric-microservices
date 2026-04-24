@@ -4,20 +4,32 @@
   "private": true,
   "dependencies": {
     "ajv": "^8.17.1",
+    "axios": "^1.7.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.0",
     "react-scripts": "5.0.1",
-    "zustand": "^4.5.4",
-    "axios": "^1.7.4"
+    "zustand": "^4.5.4"
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "test": "react-scripts test --watchAll=false --coverage --coverageThreshold='{\"global\":{\"branches\":12,\"functions\":25,\"lines\":25,\"statements\":24}}'"
   },
   "proxy": "http://localhost:9080",
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
-    "development": ["last 1 chrome version", "last 1 firefox version"]
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version"
+    ]
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2"
   }
 }
