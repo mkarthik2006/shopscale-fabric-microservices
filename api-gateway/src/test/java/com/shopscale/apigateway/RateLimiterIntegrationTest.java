@@ -1,5 +1,6 @@
 package com.shopscale.apigateway;
 
+import com.shopscale.apigateway.config.ClientIpResolver;
 import com.shopscale.apigateway.filter.DistributedMinuteRateLimitGlobalFilter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,8 +47,9 @@ public class RateLimiterIntegrationTest {
         
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(chain.filter(any())).thenReturn(Mono.empty());
-        
-        filter = new DistributedMinuteRateLimitGlobalFilter(redisTemplate);
+
+        ClientIpResolver resolver = new ClientIpResolver("");
+        filter = new DistributedMinuteRateLimitGlobalFilter(redisTemplate, resolver);
     }
 
     @Test

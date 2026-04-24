@@ -1,5 +1,6 @@
 package com.shopscale.apigateway.filter;
 
+import com.shopscale.apigateway.config.ClientIpResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -27,13 +27,16 @@ public class DistributedMinuteRateLimitGlobalFilter implements GlobalFilter, Ord
     private static final Logger log = LoggerFactory.getLogger(DistributedMinuteRateLimitGlobalFilter.class);
 
     private final ReactiveStringRedisTemplate redis;
+    private final ClientIpResolver clientIpResolver;
 
     private static final int MAX_REQUESTS_PER_MINUTE = 100;
     private static final String KEY_PREFIX = "gw:ratelimit:minute:v1:";
     private static final Duration KEY_TTL = Duration.ofSeconds(150);
 
-    public DistributedMinuteRateLimitGlobalFilter(ReactiveStringRedisTemplate redis) {
+    public DistributedMinuteRateLimitGlobalFilter(ReactiveStringRedisTemplate redis,
+                                                  ClientIpResolver clientIpResolver) {
         this.redis = redis;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Override
@@ -52,7 +55,7 @@ public class DistributedMinuteRateLimitGlobalFilter implements GlobalFilter, Ord
         }
 
         long minuteBucket = Instant.now().getEpochSecond() / 60;
-        String clientKey = "ip:" + clientIp(exchange);
+        String clientKey = "ip:" + clientIpResolver.resolveClientIp(exchange.getRequest());
         String redisKey = KEY_PREFIX + minuteBucket + ":" + clientKey;
 
         // 🔍 TRACE LOG (ENTRY)
@@ -88,21 +91,6 @@ public class DistributedMinuteRateLimitGlobalFilter implements GlobalFilter, Ord
 
                     return chain.filter(exchange);
                 });
-    }
-
-    private static String clientIp(ServerWebExchange exchange) {
-        String forwarded = exchange.getRequest().getHeaders().getFirst("X-Forwarded-For");
-
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-
-        InetSocketAddress remote = exchange.getRequest().getRemoteAddress();
-        if (remote != null && remote.getAddress() != null) {
-            return remote.getAddress().getHostAddress();
-        }
-
-        return "unknown";
     }
 
     @Override

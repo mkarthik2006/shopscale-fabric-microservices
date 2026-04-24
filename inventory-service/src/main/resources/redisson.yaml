@@ -1,2 +1,10 @@
 singleServerConfig:
-  address: "redis://redis:6379"
+  address: "redis://${REDIS_HOST}:${REDIS_PORT}"
+  timeout: 3000
+  connectTimeout: 3000
+  retryAttempts: 3
+  retryInterval: 1500
+  connectionPoolSize: 64
+  connectionMinimumIdleSize: 16
+threads: 16
+nettyThreads: 32
