@@ -41,9 +41,11 @@ import static org.mockito.Mockito.verify;
         "spring.config.import=optional:configserver:",
         "spring.cloud.discovery.enabled=false",
         "eureka.client.enabled=false",
-        "spring.jpa.hibernate.ddl-auto=create-drop"
+        "spring.jpa.hibernate.ddl-auto=validate",
+        "spring.flyway.enabled=true"
 })
 @Testcontainers(disabledWithoutDocker = true)
+@SuppressWarnings("resource")
 class NotificationInboxDeduplicationIntegrationTest {
 
     @Container
@@ -86,6 +88,7 @@ class NotificationInboxDeduplicationIntegrationTest {
                 Instant.now(),
                 orderId,
                 "user-notification",
+                "user-notification@shopscale.dev",
                 List.of(new OrderPlacedEvent.Item("SKU-N-1", 1, new BigDecimal("10.00"))),
                 new BigDecimal("10.00"),
                 "USD"
@@ -94,7 +97,8 @@ class NotificationInboxDeduplicationIntegrationTest {
         Map<String, Object> props = Map.of(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
                 ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class,
-                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class
+                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class,
+                JsonSerializer.ADD_TYPE_INFO_HEADERS, false
         );
         ProducerFactory<String, Object> producerFactory = new DefaultKafkaProducerFactory<>(props);
         KafkaTemplate<String, Object> producer = new KafkaTemplate<>(producerFactory);

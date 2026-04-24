@@ -4,15 +4,20 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import jakarta.persistence.Column;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.Check;
 
 @Entity
 @Table(name = "inventory")
+@Check(constraints = "stock >= 0")
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE, region = "inventory.InventoryEntity")
 public class InventoryEntity {
   @Id
+  @Column(nullable = false, length = 64)
   private String sku;
+  @Column(nullable = false)
   private Integer stock;
 
   // Optimistic locking — prevents lost updates when concurrent OrderPlaced

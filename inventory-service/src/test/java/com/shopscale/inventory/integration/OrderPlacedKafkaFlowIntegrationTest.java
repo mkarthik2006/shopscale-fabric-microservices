@@ -33,7 +33,17 @@ import static org.mockito.ArgumentMatchers.anyString;
 /**
  * Week 2 review criterion: order placed event is consumed from Kafka and inventory is updated.
  */
-@SpringBootTest(classes = InventoryServiceApplication.class)
+@SpringBootTest(
+        classes = InventoryServiceApplication.class,
+        properties = {
+                "spring.cloud.config.enabled=false",
+                "spring.config.import=optional:configserver:",
+                "spring.cloud.discovery.enabled=false",
+                "eureka.client.enabled=false",
+                "spring.flyway.enabled=false",
+                "spring.jpa.hibernate.ddl-auto=create-drop"
+        }
+)
 @EmbeddedKafka(
         partitions = 1,
         topics = {"order.placed", "inventory.failure"},
@@ -86,6 +96,7 @@ class OrderPlacedKafkaFlowIntegrationTest {
                 Instant.now(),
                 orderId,
                 "test-user",
+                "test-user@shopscale.dev",
                 List.of(new OrderPlacedEvent.Item("P-IT-1", 3, new BigDecimal("9.99"))),
                 new BigDecimal("29.97"),
                 "USD"

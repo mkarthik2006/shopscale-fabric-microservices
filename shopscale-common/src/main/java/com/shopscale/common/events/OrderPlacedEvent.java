@@ -11,6 +11,7 @@ public record OrderPlacedEvent(
     Instant occurredAt,
     UUID orderId,
     String userId,
+    String userEmail,
     List<Item> items,
     BigDecimal totalAmount,
     String currency

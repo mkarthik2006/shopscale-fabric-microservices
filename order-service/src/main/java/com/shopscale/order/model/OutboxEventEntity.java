@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
@@ -13,7 +14,12 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "outbox_event")
+@Table(
+    name = "outbox_event",
+    indexes = {
+        @Index(name = "idx_outbox_status_created_at", columnList = "status, createdAt")
+    }
+)
 public class OutboxEventEntity {
 
     @Id

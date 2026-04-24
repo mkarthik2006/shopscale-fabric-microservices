@@ -9,20 +9,37 @@ import java.time.Instant;
 import java.util.*;
 
 @Entity
-@Table(name = "orders")
+@Table(
+    name = "orders",
+    indexes = {
+        @Index(name = "idx_orders_user_id_created_at", columnList = "userId, createdAt"),
+        @Index(name = "idx_orders_status_created_at", columnList = "status, createdAt")
+    }
+)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE, region = "order.OrderEntity")
 public class OrderEntity {
   @Id
   private UUID id;
+  @Column(nullable = false, length = 64)
   private String userId;
+  @Column(nullable = false, length = 254)
+  private String userEmail;
+  @Column(nullable = false, precision = 19, scale = 2)
   private BigDecimal totalAmount;
+  @Column(nullable = false, length = 3)
   private String currency;
+  @Column(nullable = false, length = 32)
   private String status;
+  @Column(nullable = false)
   private Instant createdAt;
 
   
   @ElementCollection(fetch = FetchType.LAZY)
-  @CollectionTable(name = "order_items", joinColumns = @JoinColumn(name = "order_id"))
+  @CollectionTable(
+      name = "order_items",
+      joinColumns = @JoinColumn(name = "order_id"),
+      indexes = @Index(name = "idx_order_items_order_id", columnList = "order_id")
+  )
   @BatchSize(size = 50)
   private List<OrderItemEmbeddable> items = new ArrayList<>();
 
@@ -37,6 +54,8 @@ public class OrderEntity {
   public void setId(UUID id) { this.id = id; }
   public String getUserId() { return userId; }
   public void setUserId(String userId) { this.userId = userId; }
+  public String getUserEmail() { return userEmail; }
+  public void setUserEmail(String userEmail) { this.userEmail = userEmail; }
   public BigDecimal getTotalAmount() { return totalAmount; }
   public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
   public String getCurrency() { return currency; }

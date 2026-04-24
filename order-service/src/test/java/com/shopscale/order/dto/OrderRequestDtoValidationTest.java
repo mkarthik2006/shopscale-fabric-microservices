@@ -19,12 +19,10 @@ class OrderRequestDtoValidationTest {
         OrderRequestDto dto = new OrderRequestDto();
         dto.setUserId("");
         dto.setCurrency("usd");
-        dto.setTotalAmount(0.0);
 
         OrderRequestDto.ItemDto item = new OrderRequestDto.ItemDto();
         item.setSku("");
         item.setQuantity(0);
-        item.setUnitPrice(0.0);
         dto.setItems(List.of(item));
 
         var violations = validator.validate(dto);

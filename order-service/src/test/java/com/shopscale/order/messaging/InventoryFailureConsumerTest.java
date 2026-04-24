@@ -3,21 +3,22 @@ package com.shopscale.order.messaging;
 import com.shopscale.common.events.InventoryInsufficientEvent;
 import com.shopscale.common.events.OrderCancelledEvent;
 import com.shopscale.order.model.OrderEntity;
+import com.shopscale.order.model.OutboxStatus;
 import com.shopscale.order.repository.OrderRepository;
+import com.shopscale.order.repository.OutboxEventRepository;
+import com.shopscale.order.service.OrderOutboxMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
 
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -25,17 +26,15 @@ import static org.mockito.Mockito.*;
 @SuppressWarnings("unchecked")
 class InventoryFailureConsumerTest {
 
-    private static final String TEST_TOPIC = "order.cancelled";
-
     @Mock private OrderRepository orderRepository;
-    @Mock private KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock private OutboxEventRepository outboxEventRepository;
+    @Mock private OrderOutboxMapper outboxMapper;
 
     private InventoryFailureConsumer consumer;
 
     @BeforeEach
     void setUp() {
-        // Clean constructor injection (enterprise best practice)
-        consumer = new InventoryFailureConsumer(orderRepository, kafkaTemplate, TEST_TOPIC);
+        consumer = new InventoryFailureConsumer(orderRepository, outboxEventRepository, outboxMapper);
     }
 
     @Test
@@ -46,12 +45,10 @@ class InventoryFailureConsumerTest {
         OrderEntity order = new OrderEntity();
         order.setId(orderId);
         order.setStatus("PLACED");
+        order.setUserEmail("user-1@shopscale.dev");
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-
-        // Mock async Kafka success
-        when(kafkaTemplate.send(eq(TEST_TOPIC), eq(orderId.toString()), any()))
-                .thenReturn(CompletableFuture.completedFuture(mock(SendResult.class)));
+        when(outboxMapper.toPayload(any(OrderCancelledEvent.class))).thenReturn("{\"eventType\":\"ORDER_CANCELLED\"}");
 
         InventoryInsufficientEvent event = new InventoryInsufficientEvent(
                 orderId, UUID.randomUUID(), "SKU_PRO_1", "Insufficient stock"
@@ -65,16 +62,15 @@ class InventoryFailureConsumerTest {
         // ✅ Verify DB interaction
         verify(orderRepository).save(order);
 
-        // ✅ Verify correct event payload
-        verify(kafkaTemplate).send(
-                eq(TEST_TOPIC),
-                eq(orderId.toString()),
-                argThat(payload -> {
-                    assertThat(payload).isInstanceOf(OrderCancelledEvent.class);
-                    OrderCancelledEvent evt = (OrderCancelledEvent) payload;
-                    return evt.orderId().equals(orderId);
-                })
-        );
+        verify(outboxMapper).toPayload(argThat((OrderCancelledEvent evt) -> evt.orderId().equals(orderId)));
+        verify(outboxEventRepository).save(argThat(outbox ->
+                outbox.getAggregateId().equals(orderId)
+                        && "ORDER".equals(outbox.getAggregateType())
+                        && "ORDER_CANCELLED".equals(outbox.getEventType())
+                        && outbox.getStatus() == OutboxStatus.PENDING
+                        && outbox.getPayload() != null
+                        && !outbox.getPayload().isBlank()
+        ));
     }
 
     @Test
@@ -85,6 +81,7 @@ class InventoryFailureConsumerTest {
         OrderEntity order = new OrderEntity();
         order.setId(orderId);
         order.setStatus("CANCELLED");
+        order.setUserEmail("user-1@shopscale.dev");
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
@@ -96,7 +93,7 @@ class InventoryFailureConsumerTest {
 
         // ✅ No duplicate processing
         verify(orderRepository, never()).save(any());
-        verify(kafkaTemplate, never()).send(anyString(), anyString(), any());
+        verify(outboxEventRepository, never()).save(any());
     }
 
     @Test
@@ -112,41 +109,6 @@ class InventoryFailureConsumerTest {
 
         consumer.handleFailure(event);
 
-        // ✅ No interaction with Kafka
-        verify(kafkaTemplate, never()).send(anyString(), anyString(), any());
-    }
-
-    @Test
-    @DisplayName("handleFailure - handles Kafka send failure (resilience test)")
-    void handleFailure_shouldHandleKafkaFailure() {
-        UUID orderId = UUID.randomUUID();
-
-        OrderEntity order = new OrderEntity();
-        order.setId(orderId);
-        order.setStatus("PLACED");
-
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-
-        // Simulate Kafka failure
-        CompletableFuture<SendResult<String, Object>> failedFuture = new CompletableFuture<>();
-        failedFuture.completeExceptionally(new RuntimeException("Kafka unavailable"));
-
-        when(kafkaTemplate.send(eq(TEST_TOPIC), eq(orderId.toString()), any()))
-                .thenReturn(failedFuture);
-
-        InventoryInsufficientEvent event = new InventoryInsufficientEvent(
-                orderId, UUID.randomUUID(), "SKU_PRO_1", "Failure scenario"
-        );
-
-        try {
-            consumer.handleFailure(event);
-        } catch (RuntimeException ignored) {
-            // Expected due to Kafka failure
-        }
-
-        // ✅ Order still cancelled (transaction completed)
-        assertThat(order.getStatus()).isEqualTo("CANCELLED");
-
-        verify(orderRepository).save(order);
+        verify(outboxEventRepository, never()).save(any());
     }
 }
