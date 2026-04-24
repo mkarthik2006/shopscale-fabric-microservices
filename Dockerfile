@@ -41,7 +41,7 @@ WORKDIR /app
 
 ARG SERVICE_NAME
 
-COPY --from=build /workspace/${SERVICE_NAME}/target/${SERVICE_NAME}-1.0.0.jar app.jar
+COPY --from=build /workspace/${SERVICE_NAME}/target/*.jar app.jar
 
 RUN chown spring:spring app.jar
 USER spring:spring

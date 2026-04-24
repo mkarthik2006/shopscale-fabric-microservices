@@ -1,0 +1,24 @@
+.git
+.idea
+.vscode
+**/.DS_Store
+
+# Build outputs
+target
+**/target
+frontend/build
+
+# Dependency directories
+node_modules
+**/node_modules
+
+# Test artifacts
+frontend/coverage
+**/coverage
+**/*.log
+
+# Local runtime/env artifacts
+.env
+.env.local
+.env.*.local
+*.pid

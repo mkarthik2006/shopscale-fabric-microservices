@@ -5,8 +5,10 @@
 -- other microservices in the fabric.
 -- ──────────────────────────────────────────────────────
 
-CREATE DATABASE inventorydb;
-GRANT ALL PRIVILEGES ON DATABASE inventorydb TO shopscale;
+SELECT 'CREATE DATABASE inventorydb'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'inventorydb')\gexec
+SELECT format('GRANT ALL PRIVILEGES ON DATABASE inventorydb TO %I', current_user)\gexec
 
-CREATE DATABASE notificationdb;
-GRANT ALL PRIVILEGES ON DATABASE notificationdb TO shopscale;
+SELECT 'CREATE DATABASE notificationdb'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'notificationdb')\gexec
+SELECT format('GRANT ALL PRIVILEGES ON DATABASE notificationdb TO %I', current_user)\gexec

@@ -8,7 +8,10 @@ import org.springframework.test.context.DynamicPropertySource;
 
 import java.nio.file.Path;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        useMainMethod = SpringBootTest.UseMainMethod.ALWAYS
+)
 @ActiveProfiles("native")
 class ConfigServerApplicationTest {
 
