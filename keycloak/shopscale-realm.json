@@ -1,7 +1,7 @@
 {
   "realm": "shopscale",
   "enabled": true,
-  "sslRequired": "none",
+  "sslRequired": "external",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
@@ -19,7 +19,7 @@
       "clientId": "shopscale-gateway",
       "enabled": true,
       "publicClient": true,
-      "directAccessGrantsEnabled": true,
+      "directAccessGrantsEnabled": false,
       "redirectUris": ["http://localhost:3000/*", "http://localhost:9080/*"],
       "webOrigins": ["http://localhost:3000", "http://localhost:9080"],
       "defaultClientScopes": ["openid", "profile", "email"],
@@ -40,11 +40,12 @@
       "email": "testuser@shopscale.dev",
       "firstName": "Test",
       "lastName": "User",
+      "requiredActions": ["UPDATE_PASSWORD"],
       "credentials": [
         {
           "type": "password",
-          "value": "password",
-          "temporary": false
+          "value": "bootstrap-reset-required",
+          "temporary": true
         }
       ],
       "realmRoles": ["ROLE_USER"]
@@ -56,11 +57,12 @@
       "email": "admin@shopscale.dev",
       "firstName": "Admin",
       "lastName": "User",
+      "requiredActions": ["UPDATE_PASSWORD"],
       "credentials": [
         {
           "type": "password",
-          "value": "admin",
-          "temporary": false
+          "value": "bootstrap-reset-required",
+          "temporary": true
         }
       ],
       "realmRoles": ["ROLE_USER", "ROLE_ADMIN"]

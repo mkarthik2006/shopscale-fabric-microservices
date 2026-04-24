@@ -26,7 +26,10 @@ public final class KeycloakRealmRoleGrantedAuthoritiesConverter implements Conve
         List<GrantedAuthority> out = new ArrayList<>();
         for (Object r : roles) {
             if (r != null) {
-                out.add(new SimpleGrantedAuthority("ROLE_" + r.toString().toUpperCase()));
+                String normalized = r.toString().toUpperCase();
+                out.add(new SimpleGrantedAuthority(
+                        normalized.startsWith("ROLE_") ? normalized : "ROLE_" + normalized
+                ));
             }
         }
         return out;

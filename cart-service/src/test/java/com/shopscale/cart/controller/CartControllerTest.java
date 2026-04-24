@@ -52,6 +52,8 @@ class CartControllerTest {
                     .header("alg", "none")
                     .issuedAt(Instant.now())
                     .expiresAt(Instant.now().plusSeconds(3600))
+                    .claim("preferred_username", "user-001")
+                    .claim("sub", "user-001")
                     .issuer("http://cart.test")
                     .build();
         });
@@ -123,5 +125,18 @@ class CartControllerTest {
         mockMvc.perform(get("/api/v1/cart/user-001/total")
                         .header("Authorization", "Bearer unit-test-token"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET /cart/total — returns 403 when userId mismatches JWT principal")
+    void total_shouldReturn403WhenUserMismatch() throws Exception {
+        PriceResponseDto priceData =
+                new PriceResponseDto("P1", new BigDecimal("199.99"), "USD", "LIVE");
+        when(priceClientService.getPrice("P1")).thenReturn(priceData);
+
+        mockMvc.perform(get("/api/v1/cart/user-evil/total")
+                        .header("Authorization", "Bearer unit-test-token")
+                        .param("sku", "P1"))
+                .andExpect(status().isForbidden());
     }
 }
