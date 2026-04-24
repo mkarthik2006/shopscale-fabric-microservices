@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import com.shopscale.product.model.Product;
 import com.shopscale.product.repository.ProductRepository;
 import com.shopscale.product.dto.ProductDTO;
+import com.shopscale.product.dto.ProductUpsertRequestDto;
+import com.shopscale.common.exception.ResourceNotFoundException;
 
 @Service
 public class ProductService {
@@ -42,7 +44,11 @@ public class ProductService {
     public Product getById(String id) {
         log.debug("Fetching product by id={}", id);
 
-        return repo.findById(id).orElseThrow(() -> new java.util.NoSuchElementException("Product not found with id: " + id));
+        return repo.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
+    }
+
+    public ProductDTO getByIdDto(String id) {
+        return mapToDTO(getById(id));
     }
 
     // ✅ CREATE
@@ -51,12 +57,22 @@ public class ProductService {
         return repo.save(product);
     }
 
+    public ProductDTO create(ProductUpsertRequestDto request) {
+        Product product = new Product();
+        product.setSku(request.getSku());
+        product.setName(request.getName());
+        product.setPrice(request.getPrice());
+        product.setStock(request.getStock());
+        product.setActive(request.getActive());
+        return mapToDTO(create(product));
+    }
+
     // ✅ UPDATE (partial-update safe: only overwrite fields the caller supplied)
     public Product update(String id, Product req) {
         log.info("Updating product id={}", id);
 
         Product p = repo.findById(id)
-                .orElseThrow(() -> new java.util.NoSuchElementException("Product not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
 
         if (req.getName() != null)   p.setName(req.getName());
         if (req.getSku() != null)    p.setSku(req.getSku());
@@ -65,6 +81,16 @@ public class ProductService {
         if (req.getActive() != null) p.setActive(req.getActive());
 
         return repo.save(p);
+    }
+
+    public ProductDTO update(String id, ProductUpsertRequestDto req) {
+        Product product = new Product();
+        product.setSku(req.getSku());
+        product.setName(req.getName());
+        product.setPrice(req.getPrice());
+        product.setStock(req.getStock());
+        product.setActive(req.getActive());
+        return mapToDTO(update(id, product));
     }
 
     // ✅ DELETE

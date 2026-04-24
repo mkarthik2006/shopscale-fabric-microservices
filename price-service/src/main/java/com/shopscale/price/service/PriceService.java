@@ -1,6 +1,7 @@
 package com.shopscale.price.service;
 
 import com.shopscale.common.dto.PriceResponseDto;
+import com.shopscale.common.exception.ResourceNotFoundException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -31,7 +32,7 @@ public class PriceService {
         );
 
         BigDecimal price = Optional.ofNullable(MOCK_PRICES.get(sku.toUpperCase()))
-                .orElseThrow(() -> new RuntimeException("Pricing not found for SKU: " + sku));
+                .orElseThrow(() -> new ResourceNotFoundException("Pricing not found for SKU: " + sku));
 
         return new PriceResponseDto(
                 sku,
