@@ -57,7 +57,7 @@ public class PriceClientService {
      */
     public PriceResponseDto fallbackPrice(String sku, Throwable ex) {
 
-        log.warn("🚨 Circuit Breaker triggered for SKU: {}", sku, ex);
+        log.warn("Circuit breaker triggered for SKU: {}", sku, ex);
 
         return new PriceResponseDto(
                 sku,

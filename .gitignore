@@ -14,6 +14,8 @@ target/
 
 # Node
 node_modules/
+frontend/coverage/
+coverage/
 
 # Logs
 logs/

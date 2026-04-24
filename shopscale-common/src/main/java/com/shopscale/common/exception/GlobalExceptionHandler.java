@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
@@ -117,5 +118,18 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest()
                 .body(StandardResponse.failure("Invalid JSON format or missing required fields", 400));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<StandardResponse<Object>> handleResponseStatus(ResponseStatusException ex) {
+        int statusCode = ex.getStatusCode().value();
+        String reason = ex.getReason() != null ? ex.getReason() : "Request failed";
+        log.warn("Request rejected: {} traceId={} spanId={}",
+                reason,
+                MDC.get("traceId"),
+                MDC.get("spanId"));
+
+        return ResponseEntity.status(ex.getStatusCode())
+                .body(StandardResponse.failure(reason, statusCode));
     }
 }

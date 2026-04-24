@@ -39,25 +39,29 @@ services:
   mongodb:
     image: mongo:7
     ports:
-      - "27017:27017"
+      - "127.0.0.1:${MONGO_HOST_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
+      start_period: 20s
 
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: shopscale
-      POSTGRES_PASSWORD: shopscale
-      POSTGRES_DB: orderdb
+      POSTGRES_USER: ${POSTGRES_USER:-shopscale}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shopscale-dev-password}
+      POSTGRES_DB: ${POSTGRES_DB:-orderdb}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shopscale -d orderdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shopscale} -d ${POSTGRES_DB:-orderdb}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -65,7 +69,9 @@ services:
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -86,15 +92,15 @@ services:
     image: quay.io/keycloak/keycloak:24.0
     command: start-dev --import-realm --health-enabled=true
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-shopscale-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-shopscale-admin-password}
       JAVA_OPTS_KC_HEAP: "-Xms256m -Xmx512m"
     ports:
       - "8180:8080"
     volumes:
       - ./keycloak/shopscale-realm.json:/opt/keycloak/data/import/shopscale-realm.json
     healthcheck:
-      test: ["CMD-SHELL", "/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin > /dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user ${KEYCLOAK_ADMIN:-shopscale-admin} --password ${KEYCLOAK_ADMIN_PASSWORD:-shopscale-admin-password} > /dev/null 2>&1 || exit 1"]
       interval: 20s
       timeout: 10s
       retries: 20
@@ -264,14 +270,14 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8082
-      JAVA_TOOL_OPTIONS: -Xms48m -Xmx96m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
       DB_HOST: postgres
       DB_NAME: orderdb
-      DB_USER: shopscale
-      DB_PASS: shopscale
+      DB_USER: ${POSTGRES_USER:-shopscale}
+      DB_PASS: ${POSTGRES_PASSWORD:-shopscale-dev-password}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
@@ -281,10 +287,10 @@ services:
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health > /dev/null || exit 1"]
-      interval: 30s
-      timeout: 20s
-      retries: 20
-      start_period: 240s
+      interval: 45s
+      timeout: 30s
+      retries: 40
+      start_period: 180s
 
   inventory-service:
     build:
@@ -312,14 +318,14 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8083
-      JAVA_TOOL_OPTIONS: -Xms48m -Xmx96m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
       DB_HOST: postgres
       DB_NAME: inventorydb
-      DB_USER: shopscale
-      DB_PASS: shopscale
+      DB_USER: ${POSTGRES_USER:-shopscale}
+      DB_PASS: ${POSTGRES_PASSWORD:-shopscale-dev-password}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
@@ -329,10 +335,10 @@ services:
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health > /dev/null || exit 1"]
-      interval: 30s
-      timeout: 20s
-      retries: 20
-      start_period: 240s
+      interval: 45s
+      timeout: 30s
+      retries: 40
+      start_period: 180s
 
   notification-service:
     build:
@@ -362,14 +368,14 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8084
-      JAVA_TOOL_OPTIONS: -Xms48m -Xmx96m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
       DB_HOST: postgres
       DB_NAME: notificationdb
-      DB_USER: shopscale
-      DB_PASS: shopscale
+      DB_USER: ${POSTGRES_USER:-shopscale}
+      DB_PASS: ${POSTGRES_PASSWORD:-shopscale-dev-password}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
@@ -381,10 +387,10 @@ services:
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health > /dev/null || exit 1"]
-      interval: 30s
-      timeout: 20s
-      retries: 20
-      start_period: 240s
+      interval: 45s
+      timeout: 30s
+      retries: 40
+      start_period: 180s
 
   price-service:
     build:
@@ -477,3 +483,8 @@ services:
       timeout: 10s
       retries: 10
       start_period: 20s
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:

@@ -2,6 +2,7 @@ package com.shopscale.product.service;
 
 import com.shopscale.product.model.Product;
 import com.shopscale.product.repository.ProductRepository;
+import com.shopscale.common.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,7 +13,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,12 +79,12 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("getById — throws NoSuchElementException when not found")
+    @DisplayName("getById — throws ResourceNotFoundException when not found")
     void getById_shouldThrowWhenNotFound() {
         when(repo.findById("nonexistent")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> productService.getById("nonexistent"))
-                .isInstanceOf(NoSuchElementException.class);
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
@@ -126,7 +126,7 @@ class ProductServiceTest {
         when(repo.findById("nonexistent")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> productService.update("nonexistent", new Product()))
-                .isInstanceOf(NoSuchElementException.class);
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test

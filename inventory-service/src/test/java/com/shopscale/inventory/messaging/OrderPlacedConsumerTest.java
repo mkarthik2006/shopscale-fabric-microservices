@@ -1,10 +1,11 @@
 package com.shopscale.inventory.messaging;
 
-import com.shopscale.common.events.InventoryInsufficientEvent;
 import com.shopscale.common.events.OrderPlacedEvent;
+import com.shopscale.inventory.model.CompensationOutboxEntity;
 import com.shopscale.inventory.model.InboxEventEntity;
 import com.shopscale.inventory.model.InboxEventStatus;
 import com.shopscale.inventory.model.InventoryEntity;
+import com.shopscale.inventory.repository.CompensationOutboxRepository;
 import com.shopscale.inventory.repository.InboxEventRepository;
 import com.shopscale.inventory.repository.InventoryRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,17 +15,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -39,9 +38,9 @@ class OrderPlacedConsumerTest {
 
     @Mock private InventoryRepository inventoryRepository;
     @Mock private InboxEventRepository inboxEventRepository;
-    @Mock private KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock private CompensationOutboxRepository compensationOutboxRepository;
 
-    // FIX: Use manual construction instead of @InjectMocks (constructor has @Value param)
+    // FIX: Use manual construction to control dependencies explicitly.
     private OrderPlacedConsumer consumer;
 
     private OrderPlacedEvent event;
@@ -50,16 +49,18 @@ class OrderPlacedConsumerTest {
 
     @BeforeEach
     void setUp() {
-        // FIX: Manually construct with failureTopic value
         consumer = new OrderPlacedConsumer(
-                inventoryRepository, inboxEventRepository, kafkaTemplate, "inventory.failure"
+                inventoryRepository, inboxEventRepository, compensationOutboxRepository
         );
+        org.mockito.Mockito.lenient().when(inboxEventRepository.updateStatusIfCurrent(
+                any(UUID.class), eq(InboxEventStatus.RECEIVED), eq(InboxEventStatus.IN_PROGRESS)))
+                .thenReturn(1);
 
         eventId = UUID.randomUUID();
         orderId = UUID.randomUUID();
         event = new OrderPlacedEvent(
                 eventId, "ORDER_PLACED", Instant.now(),
-                orderId, "U-001",
+                orderId, "U-001", "u001@shopscale.dev",
                 List.of(new OrderPlacedEvent.Item("P1", 2, new BigDecimal("199.99"))),
                 new BigDecimal("399.98"), "USD"
         );
@@ -98,8 +99,7 @@ class OrderPlacedConsumerTest {
 
         verify(inventoryRepository, never()).findById(any());
         verify(inventoryRepository, never()).save(any());
-        // FIX: verify 3-arg send() signature
-        verify(kafkaTemplate, never()).send(anyString(), anyString(), any());
+        verify(compensationOutboxRepository, never()).save(any());
     }
 
     @Test
@@ -114,38 +114,25 @@ class OrderPlacedConsumerTest {
 
         when(inventoryRepository.findById("P1")).thenReturn(Optional.of(inv));
 
-        // FIX: Mock 3-arg Kafka send with CompletableFuture
-        when(kafkaTemplate.send(eq("inventory.failure"), anyString(), any(InventoryInsufficientEvent.class)))
-                .thenReturn(CompletableFuture.completedFuture(mock(SendResult.class)));
-
         consumer.consume(event);
 
-        // FIX: verify 3-arg send() call
-        verify(kafkaTemplate).send(eq("inventory.failure"), anyString(), any(InventoryInsufficientEvent.class));
+        verify(compensationOutboxRepository).save(any(CompensationOutboxEntity.class));
 
         // Stock NOT deducted
         verify(inventoryRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("consume — publishes failure when SKU not found in inventory")
-    void consume_shouldPublishFailureWhenSkuNotFound() {
+    @DisplayName("consume — rethrows when SKU not found to allow Kafka retry/DLQ")
+    void consume_shouldRethrowWhenSkuNotFound() {
         when(inboxEventRepository.findById(eventId)).thenReturn(Optional.empty());
         when(inboxEventRepository.save(any(InboxEventEntity.class))).thenAnswer(inv -> inv.getArgument(0));
         when(inventoryRepository.findById("P1")).thenReturn(Optional.empty());
 
-        // FIX: Mock 3-arg Kafka send
-        when(kafkaTemplate.send(eq("inventory.failure"), anyString(), any(InventoryInsufficientEvent.class)))
-                .thenReturn(CompletableFuture.completedFuture(mock(SendResult.class)));
-
-        consumer.consume(event);
-
-        // FIX: verify 3-arg send() call with captor
-        ArgumentCaptor<InventoryInsufficientEvent> failCaptor =
-                ArgumentCaptor.forClass(InventoryInsufficientEvent.class);
-        verify(kafkaTemplate).send(eq("inventory.failure"), anyString(), failCaptor.capture());
-
-        assertThat(failCaptor.getValue().orderId()).isEqualTo(orderId);
+        assertThatThrownBy(() -> consumer.consume(event))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("SKU not found");
+        verify(compensationOutboxRepository, never()).save(any(CompensationOutboxEntity.class));
     }
 
     @Test
@@ -153,7 +140,7 @@ class OrderPlacedConsumerTest {
     void consume_shouldProcessMultiItemOrder() {
         OrderPlacedEvent multiEvent = new OrderPlacedEvent(
                 eventId, "ORDER_PLACED", Instant.now(),
-                orderId, "U-002",
+                orderId, "U-002", "u002@shopscale.dev",
                 List.of(
                         new OrderPlacedEvent.Item("P1", 3, new BigDecimal("199.99")),
                         new OrderPlacedEvent.Item("P2", 5, new BigDecimal("89.50"))

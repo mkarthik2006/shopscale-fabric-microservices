@@ -40,6 +40,12 @@
       <artifactId>spring-boot-starter-oauth2-client</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>com.shopscale</groupId>
+      <artifactId>shopscale-oidc</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+
     <!-- INFRASTRUCTURE: Resilience, Discovery & Centralized Config -->
     <dependency>
       <groupId>org.springframework.cloud</groupId>

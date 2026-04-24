@@ -35,10 +35,13 @@ class OrderServiceAsyncFailureTest {
     @Mock
     private OrderOutboxMapper outboxMapper;
 
+    @Mock
+    private PriceClientService priceClientService;
+
     @Test
     @DisplayName("placeOrder persists order and outbox event in same request")
     void placeOrder_persistsOutboxInSameTransactionBoundary() {
-        OrderService orderService = new OrderService(repository, outboxEventRepository, outboxMapper);
+        OrderService orderService = new OrderService(repository, outboxEventRepository, outboxMapper, priceClientService);
 
         OrderItemEmbeddable item = new OrderItemEmbeddable();
         item.setSku("P1");
@@ -46,6 +49,7 @@ class OrderServiceAsyncFailureTest {
         item.setUnitPrice(new BigDecimal("9.99"));
         OrderEntity order = new OrderEntity();
         order.setUserId("U-1");
+        order.setUserEmail("u-1@shopscale.dev");
         order.setTotalAmount(new BigDecimal("9.99"));
         order.setCurrency("USD");
         order.setItems(List.of(item));

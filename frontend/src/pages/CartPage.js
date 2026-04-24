@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import useStore from '../store/useStore';
-import api, { getApiErrorMessage } from '../services/api';
+import api, { getApiErrorMessage, getAuthenticatedUserId } from '../services/api';
 import { showErrorToast, showSuccessToast } from '../utils/toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,13 +12,22 @@ function CartPage() {
   const [fallbackNotice, setFallbackNotice] = useState('');
 
   const total = cartItems.reduce((sum, i) => sum + (i.price ?? 0) * i.quantity, 0);
+  const formatCurrency = (amount) => new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(Number(amount || 0));
 
   const handlePlaceOrder = async () => {
     setError('');
     setMessage('');
     try {
-      const userId = localStorage.getItem('userId') || 'guest-user';
-      await placeOrder(userId);
+      const userId = getAuthenticatedUserId();
+      if (!userId) {
+        setError('Please login to place an order.');
+        navigate('/login');
+        return;
+      }
+      await placeOrder();
       setMessage('Order placed successfully. Check the Orders page.');
       showSuccessToast('Order placed successfully.');
       navigate('/orders');
@@ -31,11 +40,16 @@ function CartPage() {
 
   const checkFallbackMode = async () => {
     if (!cartItems.length) return;
-    const userId = localStorage.getItem('userId') || 'guest-user';
+    const userId = getAuthenticatedUserId();
+    if (!userId) {
+      setError('Please login to check cart pricing.');
+      navigate('/login');
+      return;
+    }
     try {
       const firstSku = cartItems[0].sku;
       const res = await api.get(`/api/cart/${userId}/total?sku=${encodeURIComponent(firstSku)}`);
-      const source = String(res.data?.priceSource || '').toUpperCase();
+      const source = String(res.data?.data?.priceResponse?.priceSource || '').toUpperCase();
       if (source === 'FALLBACK') {
         setFallbackNotice('Price service unavailable, showing fallback');
       } else {
@@ -73,9 +87,9 @@ function CartPage() {
                   <tr key={item.sku}>
                     <td>{item.name}</td>
                     <td>{item.sku}</td>
-                    <td>Rs {Number(item.price ?? 0).toLocaleString('en-IN')}</td>
+                    <td>{formatCurrency(item.price)}</td>
                     <td>{item.quantity}</td>
-                    <td>Rs {Number((item.price ?? 0) * item.quantity).toLocaleString('en-IN')}</td>
+                    <td>{formatCurrency((item.price ?? 0) * item.quantity)}</td>
                     <td>
                       <button className="btn btn-danger" onClick={() => removeFromCart(item.sku)}>Remove</button>
                     </td>
@@ -85,7 +99,7 @@ function CartPage() {
             </table>
           </div>
           <div style={{ textAlign: 'right', marginTop: '16px' }}>
-            <p style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Total: Rs {total.toLocaleString('en-IN')}</p>
+            <p style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Total: {formatCurrency(total)}</p>
             <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn btn-primary" onClick={checkFallbackMode}>Check Live Price Mode</button>
               <button className="btn btn-danger" onClick={clearCart}>Clear Cart</button>

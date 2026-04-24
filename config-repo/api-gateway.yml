@@ -11,7 +11,7 @@ spring:
     gateway:
       discovery:
         locator:
-          enabled: true
+          enabled: false
       
       httpclient:
         connect-timeout: 3000
@@ -34,7 +34,6 @@ spring:
             - name: CircuitBreaker
               args:
                 name: productService
-                fallbackUri: forward:/fallback/products
             - TokenRelay
 
         - id: order-service
@@ -45,7 +44,6 @@ spring:
             - name: CircuitBreaker
               args:
                 name: orderService
-                fallbackUri: forward:/fallback/orders
             - TokenRelay
 
         - id: inventory-service
@@ -56,7 +54,6 @@ spring:
             - name: CircuitBreaker
               args:
                 name: inventoryService
-                fallbackUri: forward:/fallback/inventory
             - TokenRelay
         
         - id: cart-service
@@ -67,7 +64,6 @@ spring:
             - name: CircuitBreaker
               args:
                 name: cartService
-                fallbackUri: forward:/fallback/cart
             - TokenRelay
 
         - id: price-service
@@ -78,7 +74,6 @@ spring:
             - name: CircuitBreaker
               args:
                 name: priceService
-                fallbackUri: forward:/fallback/prices
             - TokenRelay
 
   security:
@@ -123,3 +118,8 @@ management:
 logging:
   pattern:
     level: '{ "traceId": "%X{traceId:-}", "spanId": "%X{spanId:-}" } %5p [%t] %c{1}: %m%n'
+
+app:
+  rate-limit:
+    # Comma-separated remote proxy IPs allowed to supply X-Forwarded-For.
+    trusted-proxies: ${TRUSTED_PROXY_IPS:}

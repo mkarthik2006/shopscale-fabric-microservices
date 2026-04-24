@@ -75,14 +75,8 @@ graph TD
 
 JWT is issued by Keycloak and validated by API Gateway.
 
-Token flow used by frontend and curl:
-
-```bash
-TOKEN=$(curl -s -X POST http://localhost:9080/auth/realms/shopscale/protocol/openid-connect/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password&client_id=shopscale-gateway&username=testuser&password=password" \
-  | python3 -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))')
-```
+Frontend login uses OAuth2 Authorization Code + PKCE (`/login` -> Keycloak redirect -> token exchange).
+Resource Owner Password Credentials is disabled for the gateway client.
 
 Gateway validates JWT issuer:
 
@@ -183,6 +177,13 @@ Implemented as global gateway filter backed by Redis:
 ## 10. 🐳 Docker Setup
 
 One-command startup:
+
+Required environment variables:
+
+```bash
+export POSTGRES_PASSWORD='change-me'
+export KEYCLOAK_ADMIN_PASSWORD='change-me'
+```
 
 ```bash
 docker compose up --build -d

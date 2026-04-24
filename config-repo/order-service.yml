@@ -17,7 +17,7 @@ spring:
     redisson:
       config: |
         singleServerConfig:
-          address: "redis://${REDIS_HOST:redis}:${REDIS_PORT:6379}"
+          address: "redis://${REDIS_HOST}:${REDIS_PORT}"
 
   #DATABASE (PostgreSQL - Mandatory Page 6)
   datasource:
@@ -28,7 +28,7 @@ spring:
   
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -38,6 +38,10 @@ spring:
           use_query_cache: false
           region:
             factory_class: org.redisson.hibernate.RedissonRegionFactory
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
 
   #KAFKA (Producer & Event-Driven Settings)
   kafka:
@@ -54,7 +58,7 @@ spring:
       retries: 5
       properties:
         enable.idempotence: true # Prevents duplicate "Order Placed" events
-        spring.json.add.type.headers: false # Don't send internal DTO class names
+        spring.json.add.type.headers: true
 
 #OBSERVABILITY & HEALTH (Week 4 Trace/Metrics Mandate)
 management:

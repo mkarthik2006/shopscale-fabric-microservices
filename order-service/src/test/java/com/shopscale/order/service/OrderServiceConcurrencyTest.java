@@ -40,11 +40,14 @@ class OrderServiceConcurrencyTest {
     @Mock
     private OrderOutboxMapper outboxMapper;
 
+    @Mock
+    private PriceClientService priceClientService;
+
     @Test
     @DisplayName("Concurrent placeOrder invocations each persist one outbox event (virtual-thread executor)")
     void placeOrder_underConcurrency_persistsOneOutboxEventPerOrder() throws Exception {
         ExecutorService vtExecutor = Executors.newVirtualThreadPerTaskExecutor();
-        OrderService orderService = new OrderService(repository, outboxEventRepository, outboxMapper);
+        OrderService orderService = new OrderService(repository, outboxEventRepository, outboxMapper, priceClientService);
 
         int threads = 32;
         CountDownLatch ready = new CountDownLatch(threads);
@@ -76,6 +79,7 @@ class OrderServiceConcurrencyTest {
                     item.setUnitPrice(new BigDecimal("10.00"));
                     OrderEntity order = new OrderEntity();
                     order.setUserId("U-" + idSeq.incrementAndGet());
+                    order.setUserEmail("user-" + idx + "@shopscale.dev");
                     order.setTotalAmount(new BigDecimal("10.00"));
                     order.setCurrency("USD");
                     order.setItems(List.of(item));

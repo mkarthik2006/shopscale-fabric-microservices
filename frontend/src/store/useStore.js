@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '../services/api';
+import api, { getApiErrorMessage } from '../services/api';
 import { showSuccessToast } from '../utils/toast';
 
 const useStore = create((set, get) => ({
@@ -15,7 +15,7 @@ const useStore = create((set, get) => ({
       set({ products, productsLoading: false });
     } catch (err) {
       console.error('Failed to fetch products:', err);
-      set({ productsLoading: false, productsError: 'Failed to load products.' });
+      set({ productsLoading: false, productsError: getApiErrorMessage(err) });
     }
   },
 
@@ -43,19 +43,15 @@ const useStore = create((set, get) => ({
   ordersLoading: false,
   ordersError: '',
   orderLoading: false,
-  placeOrder: async (userId) => {
+  placeOrder: async () => {
     set({ orderLoading: true });
     const items = get().cartItems.map(i => ({
       sku: i.sku,
       quantity: i.quantity,
-      unitPrice: i.price,
     }));
-    const totalAmount = items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
     try {
       const res = await api.post('/api/orders', {
-        userId,
         items,
-        totalAmount,
         currency: 'USD',
       });
       set({ orderLoading: false });
@@ -67,15 +63,15 @@ const useStore = create((set, get) => ({
       throw err;
     }
   },
-  fetchOrders: async (userId) => {
+  fetchOrders: async () => {
     set({ ordersLoading: true, ordersError: '' });
     try {
-      const res = await api.get(`/api/orders?userId=${userId}`);
+      const res = await api.get('/api/orders/me');
       const orders = Array.isArray(res.data) ? res.data : [];
       set({ orders, ordersLoading: false });
     } catch (err) {
       console.error('Failed to fetch orders:', err);
-      set({ ordersLoading: false, ordersError: 'Failed to fetch orders.' });
+      set({ ordersLoading: false, ordersError: getApiErrorMessage(err) });
     }
   },
 }));

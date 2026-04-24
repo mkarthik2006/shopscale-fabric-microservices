@@ -3,11 +3,20 @@ import useStore from '../store/useStore';
 import api from '../services/api';
 import demoProducts from '../data/demoProducts';
 import { showErrorToast, showSuccessToast } from '../utils/toast';
+import { getAccessToken, getApiErrorMessage, getTokenClaims, isTokenExpired } from '../services/api';
 
 function ProductsPage() {
   const { products, productsLoading, productsError, fetchProducts, addToCart } = useStore();
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+  const hasValidSession = Boolean(getAccessToken()) && !isTokenExpired();
+  const tokenClaims = getTokenClaims();
+  const realmRoles = tokenClaims?.realm_access?.roles || [];
+  const isAdmin = realmRoles.includes('ADMIN') || realmRoles.includes('ROLE_ADMIN');
+  const formatCurrency = (amount) => new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(Number(amount || 0));
 
   const stockClass = (stock) => {
     if (!stock || stock <= 0) return 'stock-badge stock-out';
@@ -23,19 +32,29 @@ function ProductsPage() {
 
   const seedDemoProducts = async () => {
     let created = 0;
+    let failures = 0;
+    let lastFailure = '';
     for (const product of demoProducts) {
       try {
         await api.post('/api/products', product);
         created += 1;
       } catch (err) {
-        // Ignore duplicates/conflicts for idempotent demo seeding.
+        if (err?.response?.status !== 409) {
+          failures += 1;
+          lastFailure = getApiErrorMessage(err);
+        }
       }
     }
     await fetchProducts();
     if (created > 0) {
       showSuccessToast(`Added ${created} demo products`);
+    }
+    if (failures > 0) {
+      showErrorToast(`Failed to add ${failures} products: ${lastFailure}`);
     } else {
-      showErrorToast('Demo products already exist or could not be created');
+      if (created === 0) {
+        showErrorToast('Demo products already exist.');
+      }
     }
   };
 
@@ -47,9 +66,11 @@ function ProductsPage() {
           <button className="btn btn-primary" onClick={fetchProducts} disabled={productsLoading}>
             {productsLoading ? 'Refreshing...' : 'Refresh'}
           </button>
-          <button className="btn btn-success" onClick={seedDemoProducts} disabled={productsLoading}>
-            Load Demo Products
-          </button>
+          {hasValidSession && isAdmin && (
+            <button className="btn btn-success" onClick={seedDemoProducts} disabled={productsLoading}>
+              Load Demo Products
+            </button>
+          )}
         </div>
       </div>
       {productsLoading && (
@@ -83,7 +104,7 @@ function ProductsPage() {
             <h3 className="product-title">{p.name}</h3>
             <p className="muted">SKU: {p.sku}</p>
             <p className="price-text">
-              Rs {Number(p.price || 0).toLocaleString('en-IN')}
+              {formatCurrency(p.price)}
             </p>
             <p><span className={stockClass(p.stock)}>{stockLabel(p.stock)}</span></p>
             <button className="btn btn-success" onClick={() => addToCart(p)} disabled={!p.active || !p.stock}>

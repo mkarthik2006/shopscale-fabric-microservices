@@ -39,10 +39,12 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.config.import=optional:configserver:",
         "spring.cloud.discovery.enabled=false",
         "eureka.client.enabled=false",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.jpa.hibernate.ddl-auto=validate",
+        "spring.flyway.enabled=true",
         "app.outbox.publisher.fixed-delay-ms=60000"
 })
 @Testcontainers(disabledWithoutDocker = true)
+@SuppressWarnings("resource")
 class OrderOutboxIntegrationTest {
 
     @Container
@@ -102,6 +104,7 @@ class OrderOutboxIntegrationTest {
     void orderPlacementWritesOutboxAndPublishesEvent() {
         OrderEntity order = new OrderEntity();
         order.setUserId("integration-user");
+        order.setUserEmail("integration-user@shopscale.dev");
         order.setCurrency("USD");
         order.setTotalAmount(new BigDecimal("19.99"));
 

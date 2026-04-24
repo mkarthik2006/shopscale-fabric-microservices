@@ -14,9 +14,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping({"/api/cart", "/api/v1/cart"})
@@ -33,14 +37,16 @@ public class CartController {
     @GetMapping(produces = "application/json")
     public ResponseEntity<StandardResponse<CartTotalResponseDto>> totalByQuery(
             @RequestParam @NotBlank(message = "User ID cannot be blank") String userId,
-            @RequestParam @NotBlank(message = "SKU cannot be blank") String sku) {
-        return total(userId, sku);
+            @RequestParam @NotBlank(message = "SKU cannot be blank") String sku,
+            @AuthenticationPrincipal Jwt jwt) {
+        return total(userId, sku, jwt);
     }
 
     @PostMapping(consumes = "application/json", produces = "application/json")
     public ResponseEntity<StandardResponse<CartTotalResponseDto>> totalByBody(
-            @Valid @RequestBody CartRequest request) {
-        return total(request.userId(), request.sku());
+            @Valid @RequestBody CartRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return total(request.userId(), request.sku(), jwt);
     }
 
     @GetMapping(value = "/{userId}/total", produces = "application/json")
@@ -56,7 +62,10 @@ public class CartController {
     })
     public ResponseEntity<StandardResponse<CartTotalResponseDto>> total(
             @PathVariable @NotBlank(message = "User ID cannot be blank") String userId,
-            @RequestParam @NotBlank(message = "SKU cannot be blank") String sku) {
+            @RequestParam @NotBlank(message = "SKU cannot be blank") String sku,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        enforceUserScope(userId, jwt);
 
         log.info("Calculating cart total for user: {}, sku: {}", userId, sku);
 
@@ -71,5 +80,18 @@ public class CartController {
         return ResponseEntity.ok(
                 StandardResponse.success("Cart total retrieved successfully", cartSummary)
         );
+    }
+
+    private void enforceUserScope(String userId, Jwt jwt) {
+        if (jwt == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing authenticated principal");
+        }
+        String principalUser = jwt.getClaimAsString("preferred_username");
+        if (principalUser == null || principalUser.isBlank()) {
+            principalUser = jwt.getSubject();
+        }
+        if (principalUser == null || principalUser.isBlank() || !principalUser.equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User mismatch between token and request");
+        }
     }
 }

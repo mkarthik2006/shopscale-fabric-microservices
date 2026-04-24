@@ -9,7 +9,7 @@ import java.util.concurrent.Executors;
 @Configuration
 public class VirtualThreadConfig {
 
-    @Bean
+    @Bean(destroyMethod = "shutdown")
     public ExecutorService executorService() {
         return Executors.newVirtualThreadPerTaskExecutor();
     }

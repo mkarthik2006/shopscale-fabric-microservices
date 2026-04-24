@@ -39,9 +39,11 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.config.import=optional:configserver:",
         "spring.cloud.discovery.enabled=false",
         "eureka.client.enabled=false",
-        "spring.jpa.hibernate.ddl-auto=create-drop"
+        "spring.jpa.hibernate.ddl-auto=validate",
+        "spring.flyway.enabled=true"
 })
 @Testcontainers(disabledWithoutDocker = true)
+@SuppressWarnings("resource")
 class InventoryInboxDeduplicationIntegrationTest {
 
     @Container
@@ -89,6 +91,7 @@ class InventoryInboxDeduplicationIntegrationTest {
                 Instant.now(),
                 orderId,
                 "user-dedup",
+                "user-dedup@shopscale.dev",
                 List.of(new OrderPlacedEvent.Item("SKU-DEDUP-1", 2, new BigDecimal("10.00"))),
                 new BigDecimal("20.00"),
                 "USD"

@@ -1,11 +1,20 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore';
+import { getAuthenticatedUserId } from '../services/api';
 
 function OrdersPage() {
+  const navigate = useNavigate();
   const { orders, ordersLoading, ordersError, fetchOrders } = useStore();
-  const userId = localStorage.getItem('userId') || 'guest-user';
+  const userId = getAuthenticatedUserId();
 
-  useEffect(() => { fetchOrders(userId); }, [fetchOrders, userId]);
+  useEffect(() => {
+    if (!userId) {
+      navigate('/login');
+      return;
+    }
+    fetchOrders();
+  }, [fetchOrders, navigate, userId]);
 
   const statusColor = (s) => {
     if (s === 'PLACED') return '#2980b9';
@@ -17,7 +26,7 @@ function OrdersPage() {
     <div>
       <div className="page-header">
         <h2 style={{ margin: 0 }}>My Orders</h2>
-        <button className="btn btn-primary" onClick={() => fetchOrders(userId)} disabled={ordersLoading}>
+        <button className="btn btn-primary" onClick={() => fetchOrders()} disabled={ordersLoading}>
           {ordersLoading ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
@@ -32,7 +41,7 @@ function OrdersPage() {
         <div className="status status-error">
           {ordersError}
           <div style={{ marginTop: 8 }}>
-            <button className="btn btn-primary" onClick={() => fetchOrders(userId)}>Retry</button>
+            <button className="btn btn-primary" onClick={() => fetchOrders()}>Retry</button>
           </div>
         </div>
       )}
@@ -44,9 +53,7 @@ function OrdersPage() {
           <div key={o.id} className="card" style={{ marginBottom: '12px' }}>
             <p><strong>Order ID:</strong> {o.id}</p>
             <p><strong>Status:</strong> <span style={{ color: statusColor(o.status), fontWeight: 'bold' }}>{o.status}</span></p>
-            <p><strong>Total:</strong> ${o.totalAmount} {o.currency}</p>
-            <p><strong>Items:</strong> {o.items?.length ?? 0} item(s)</p>
-            <p className="muted" style={{ fontSize: '0.85rem' }}>Created: {o.createdAt}</p>
+            <p><strong>User:</strong> {o.userId}</p>
           </div>
         ))
       )}

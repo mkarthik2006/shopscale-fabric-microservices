@@ -15,6 +15,7 @@ public record OrderCancelledEvent(
     Instant occurredAt,
     UUID orderId,
     String userId,
+    String userEmail,
     String reason,
     BigDecimal totalAmount,
     String currency

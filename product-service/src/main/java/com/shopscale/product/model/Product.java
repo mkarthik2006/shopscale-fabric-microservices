@@ -2,16 +2,19 @@ package com.shopscale.product.model;
 
 import java.math.BigDecimal;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 @Document("products")
 public class Product {
   @Id
   private String id;
+  @Indexed(unique = true)
   private String sku;
   private String name;
   private BigDecimal price;
   private Integer stock;
+  @Indexed
   private Boolean active;
 
   public String getId() { return id; }

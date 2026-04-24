@@ -37,6 +37,9 @@ class OrderServiceTest {
     @Mock
     private OrderOutboxMapper outboxMapper;
 
+    @Mock
+    private PriceClientService priceClientService;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -51,6 +54,7 @@ class OrderServiceTest {
 
         sampleOrder = new OrderEntity();
         sampleOrder.setUserId("U-001");
+        sampleOrder.setUserEmail("u001@shopscale.dev");
         sampleOrder.setTotalAmount(new BigDecimal("399.98"));
         sampleOrder.setCurrency("USD");
         sampleOrder.setItems(List.of(item));

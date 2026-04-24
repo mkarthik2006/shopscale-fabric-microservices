@@ -61,8 +61,11 @@ class OutboxPublisherTest {
     void publishSingleEventMarksSentOnSuccess() throws Exception {
         UUID outboxId = UUID.randomUUID();
         OutboxEventEntity event = buildEvent(outboxId);
+        event.setStatus(OutboxStatus.IN_PROGRESS);
         OrderPlacedEvent payload = buildPayload(event.getAggregateId());
 
+        when(outboxEventRepository.updateStatusIfCurrent(outboxId, OutboxStatus.PENDING, OutboxStatus.IN_PROGRESS))
+                .thenReturn(1);
         when(outboxEventRepository.findById(outboxId)).thenReturn(Optional.of(event));
         when(outboxMapper.fromPayload(event.getPayload())).thenReturn(payload);
         when(kafkaTemplate.send(anyString(), anyString(), any()))
@@ -78,8 +81,11 @@ class OutboxPublisherTest {
     void publishSingleEventIncrementsRetryOnFailure() {
         UUID outboxId = UUID.randomUUID();
         OutboxEventEntity event = buildEvent(outboxId);
+        event.setStatus(OutboxStatus.IN_PROGRESS);
         OrderPlacedEvent payload = buildPayload(event.getAggregateId());
 
+        when(outboxEventRepository.updateStatusIfCurrent(outboxId, OutboxStatus.PENDING, OutboxStatus.IN_PROGRESS))
+                .thenReturn(1);
         when(outboxEventRepository.findById(outboxId)).thenReturn(Optional.of(event));
         when(outboxMapper.fromPayload(event.getPayload())).thenReturn(payload);
         CompletableFuture<SendResult<String, Object>> failed = new CompletableFuture<>();
@@ -122,6 +128,7 @@ class OutboxPublisherTest {
                 Instant.now(),
                 orderId,
                 "user-1",
+                "user-1@shopscale.dev",
                 List.of(new OrderPlacedEvent.Item("SKU-1", 1, new BigDecimal("9.99"))),
                 new BigDecimal("9.99"),
                 "USD"

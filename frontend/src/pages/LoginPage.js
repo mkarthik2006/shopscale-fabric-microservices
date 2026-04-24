@@ -1,44 +1,68 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState } from 'react';
+import api, { setAccessToken, getApiErrorMessage, beginPkceLogin, consumePkceState } from '../services/api';
 import { showErrorToast, showSuccessToast } from '../utils/toast';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('testuser');
-  const [password, setPassword] = useState('password');
+  const location = useLocation();
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    const exchangeCode = async () => {
+      const params = new URLSearchParams(location.search);
+      const authCode = params.get('code');
+      const authState = params.get('state');
+      if (!authCode) return;
+
+      setLoading(true);
+      try {
+        const keycloakRealm = process.env.REACT_APP_KEYCLOAK_REALM || 'shopscale';
+        const keycloakClientId = process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'shopscale-gateway';
+        const redirectUri = `${window.location.origin}/login`;
+        const pkceState = consumePkceState();
+        if (!pkceState || pkceState.state !== authState) {
+          throw new Error('Invalid login state. Please retry login.');
+        }
+
+        const tokenUrl = `/auth/realms/${keycloakRealm}/protocol/openid-connect/token`;
+        const res = await api.post(
+          tokenUrl,
+          new URLSearchParams({
+            grant_type: 'authorization_code',
+            client_id: keycloakClientId,
+            code: authCode,
+            redirect_uri: redirectUri,
+            code_verifier: pkceState.verifier,
+          }),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        );
+        setAccessToken(res.data.access_token);
+        setMessage({ type: 'success', text: 'Login successful. You can now place orders.' });
+        showSuccessToast('Login successful');
+        navigate('/', { replace: true });
+      } catch (err) {
+        const errorMessage = err?.message || getApiErrorMessage(err);
+        setMessage({ type: 'error', text: errorMessage });
+        showErrorToast(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    exchangeCode();
+  }, [location.search, navigate]);
+
+  const handleLogin = async () => {
     setLoading(true);
     try {
-      const keycloakRealm = process.env.REACT_APP_KEYCLOAK_REALM || 'shopscale';
-      const keycloakClientId = process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'shopscale-gateway';
-      // Enforce gateway-based auth flow only.
-      const tokenUrl = `/auth/realms/${keycloakRealm}/protocol/openid-connect/token`;
-
-      const res = await axios.post(
-        tokenUrl,
-        new URLSearchParams({
-          grant_type: 'password',
-          client_id: keycloakClientId,
-          username,
-          password,
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
-      localStorage.setItem('access_token', res.data.access_token);
-      localStorage.setItem('userId', username);
-      setMessage({ type: 'success', text: 'Login successful. You can now place orders.' });
-      showSuccessToast('Login successful');
-      navigate('/');
+      await beginPkceLogin();
     } catch (err) {
-      setMessage({ type: 'error', text: 'Login failed. Check credentials or Keycloak status.' });
-      showErrorToast('Invalid credentials');
-    } finally {
       setLoading(false);
+      const errorMessage = err?.message || 'Unable to start login flow.';
+      setMessage({ type: 'error', text: errorMessage });
+      showErrorToast(errorMessage);
     }
   };
 
@@ -50,18 +74,12 @@ function LoginPage() {
           {message.text}
         </div>
       )}
-      <form onSubmit={handleLogin}>
-        <label>Username</label>
-        <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} />
-        <label>Password</label>
-        <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: 8 }} disabled={loading}>
-          {loading ? (<><span className="spinner" /> Logging in...</>) : 'Login via Keycloak'}
-        </button>
-      </form>
-      <p className="muted" style={{ marginTop: '16px', fontSize: '0.85rem', textAlign: 'center' }}>
-        Default: testuser / password
+      <p style={{ marginBottom: 16 }}>
+        Use enterprise login with Authorization Code + PKCE.
       </p>
+      <button type="button" className="btn btn-primary" style={{ width: '100%', marginTop: 8 }} disabled={loading} onClick={handleLogin}>
+        {loading ? (<><span className="spinner" /> Redirecting...</>) : 'Continue with Keycloak'}
+      </button>
     </div>
   );
 }

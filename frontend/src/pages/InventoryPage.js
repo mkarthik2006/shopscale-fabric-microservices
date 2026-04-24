@@ -84,8 +84,8 @@ function InventoryPage() {
                 <tr key={item.sku}>
                   <td>{item.sku}</td>
                   <td>{item.name || productNameBySku[item.sku] || '-'}</td>
-                  <td>{item.availableQuantity ?? item.quantity ?? '-'}</td>
-                  <td>{item.updatedAt || '-'}</td>
+                  <td>{item.stock ?? '-'}</td>
+                  <td>-</td>
                 </tr>
               ))}
             </tbody>

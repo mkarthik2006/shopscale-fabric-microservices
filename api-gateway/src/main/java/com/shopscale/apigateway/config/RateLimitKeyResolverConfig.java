@@ -10,12 +10,15 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import reactor.core.publisher.Mono;
 
-import java.net.InetSocketAddress;
-
 @Configuration
 public class RateLimitKeyResolverConfig {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitKeyResolverConfig.class);
+    private final ClientIpResolver clientIpResolver;
+
+    public RateLimitKeyResolverConfig(ClientIpResolver clientIpResolver) {
+        this.clientIpResolver = clientIpResolver;
+    }
 
     @Bean
     public KeyResolver userOrIpKeyResolver() {
@@ -35,19 +38,7 @@ public class RateLimitKeyResolverConfig {
                 ))
 
                 .switchIfEmpty(Mono.defer(() -> {
-
-                    // ✅ Check X-Forwarded-For first (important for Docker/Nginx)
-                    String forwarded = exchange.getRequest().getHeaders().getFirst("X-Forwarded-For");
-
-                    String ip;
-                    if (forwarded != null && !forwarded.isBlank()) {
-                        ip = forwarded.split(",")[0].trim();
-                    } else {
-                        InetSocketAddress remote = exchange.getRequest().getRemoteAddress();
-                        ip = (remote != null && remote.getAddress() != null)
-                                ? remote.getAddress().getHostAddress()
-                                : "unknown";
-                    }
+                    String ip = clientIpResolver.resolveClientIp(exchange.getRequest());
 
                     log.debug(
                             "Rate limit key (IP) = {} traceId={} spanId={}",

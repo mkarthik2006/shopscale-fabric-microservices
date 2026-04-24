@@ -6,6 +6,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.cors.CorsConfiguration;
@@ -20,6 +21,9 @@ import java.util.List;
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
+    @Value("${app.security.cors.allowed-origins:}")
+    private String allowedOrigins;
+
     @Value("${app.security.cors.allowed-origin-patterns:http://localhost:3000}")
     private String allowedOriginPatterns;
 
@@ -55,8 +59,9 @@ public class SecurityConfig {
                         // ✅ CORS PREFLIGHT
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // ✅ PUBLIC PRODUCT API (IMPORTANT)
-                        .pathMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
+                        // Require auth for product reads so auth failures are explicit (401/403),
+                        // instead of leaking upstream availability semantics.
+                        .pathMatchers(HttpMethod.GET, "/api/products", "/api/products/**").authenticated()
 
                         // ✅ SECURED BUSINESS APIs
                         .pathMatchers(
@@ -71,7 +76,11 @@ public class SecurityConfig {
                 )
 
                 // ✅ JWT (Keycloak integration)
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(
+                        new ReactiveJwtAuthenticationConverterAdapter(
+                                com.shopscale.oidc.OAuth2ResourceServerSupport.keycloakJwtAuthenticationConverter()
+                        )
+                )))
 
                 .build();
     }
@@ -81,6 +90,17 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
+        List<String> explicitOrigins = new ArrayList<>();
+        for (String origin : allowedOrigins.split(",")) {
+            String trimmed = origin.trim();
+            if (!trimmed.isEmpty()) {
+                explicitOrigins.add(trimmed);
+            }
+        }
+        if (!explicitOrigins.isEmpty()) {
+            config.setAllowedOrigins(explicitOrigins);
+        }
+
         List<String> patterns = new ArrayList<>();
         for (String origin : allowedOriginPatterns.split(",")) {
             String trimmed = origin.trim();
@@ -88,10 +108,12 @@ public class SecurityConfig {
                 patterns.add(trimmed);
             }
         }
-        config.setAllowedOriginPatterns(patterns.isEmpty() ? Collections.singletonList("http://localhost:3000") : patterns);
+        if (explicitOrigins.isEmpty()) {
+            config.setAllowedOriginPatterns(patterns.isEmpty() ? Collections.singletonList("http://localhost:3000") : patterns);
+        }
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "x-requested-with"));
-        config.setAllowCredentials(true);
+        config.setAllowCredentials(false);
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
