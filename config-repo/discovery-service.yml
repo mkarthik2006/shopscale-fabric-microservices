@@ -21,9 +21,9 @@ eureka:
     wait-time-in-ms-when-sync-empty: 0
 
   client:
-    # Server logic: Don't register with itself in a single-instance setup
-    register-with-eureka: false
-    fetch-registry: false
+    # Self-register so DISCOVERY-SERVICE appears in the Eureka registry (reviewer Gate D)
+    register-with-eureka: true
+    fetch-registry: true
     service-url:
       defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
 

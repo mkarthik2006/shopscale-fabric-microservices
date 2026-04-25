@@ -123,26 +123,32 @@ services:
       KC_DB_POOL_INITIAL_SIZE: 5
       KC_DB_POOL_MIN_SIZE: 5
       KC_DB_POOL_MAX_SIZE: 15
-      JAVA_OPTS_KC_HEAP: "-Xms128m -Xmx256m -XX:MaxMetaspaceSize=192m"
+      JAVA_OPTS_KC_HEAP: "-Xms256m -Xmx640m -XX:MaxMetaspaceSize=256m -XX:+UseStringDeduplication"
       KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_URL: "http://localhost:8180"
+      KC_HOSTNAME_ADMIN_URL: "http://localhost:8180"
     ports:
       - "8180:8080"
     depends_on:
       postgres:
         condition: service_healthy
-    mem_limit: 1536m
+    mem_limit: 1024m
     stop_grace_period: 60s
     healthcheck:
       test: ["CMD-SHELL", "bash -ec 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; IFS=$$'\\r' read -r status <&3; [[ \"$$status\" == *\" 200 \"* ]]'"]
-      interval: 30s
-      timeout: 20s
-      retries: 20
-      start_period: 300s
+      interval: 15s
+      timeout: 10s
+      retries: 60
+      start_period: 600s
 
   keycloak-realm-seed:
     image: shopscale-fabric-keycloak
+    build:
+      context: ./keycloak
+      dockerfile: Dockerfile
+    pull_policy: never
     restart: "no"
     depends_on:
       keycloak:
@@ -187,7 +193,7 @@ services:
       - ./config-repo:/config-repo
     environment:
       SERVER_PORT: 8888
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms64m -Xmx256m -XX:+UseSerialGC -XX:+UseStringDeduplication
       CONFIG_REPO_PATH: file:/config-repo
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
@@ -210,7 +216,7 @@ services:
     restart: unless-stopped
     environment:
       SERVER_PORT: 8761
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms64m -Xmx256m -XX:+UseSerialGC -XX:+UseStringDeduplication
       EUREKA_HOST: discovery-service
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       SPRING_CLOUD_CONFIG_FAIL_FAST: "false"
@@ -249,7 +255,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8080
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseG1GC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
@@ -259,15 +265,17 @@ services:
       REDIS_PORT: 6379
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/shopscale
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/shopscale/protocol/openid-connect/certs
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
-    mem_limit: 768m
+    mem_limit: 640m
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health/readiness > /dev/null || exit 1"]
-      interval: 30s
-      timeout: 20s
-      retries: 25
-      start_period: 300s
+      interval: 15s
+      timeout: 10s
+      retries: 60
+      start_period: 600s
 
   product-service:
     mem_limit: 768m
@@ -292,12 +300,14 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8081
-      JAVA_TOOL_OPTIONS: -Xms48m -Xmx96m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms192m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/shopscale
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/shopscale/protocol/openid-connect/certs
       SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/productdb
       MONGODB_URI: mongodb://mongodb:27017/productdb
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
@@ -335,7 +345,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8082
-      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m -XX:+UseG1GC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx320m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -Dspring.jmx.enabled=false
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
@@ -350,15 +360,17 @@ services:
       REDIS_PORT: 6379
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/shopscale
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/shopscale/protocol/openid-connect/certs
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
-    mem_limit: 1g
+    mem_limit: 576m
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health/readiness > /dev/null || exit 1"]
-      interval: 45s
-      timeout: 30s
-      retries: 40
-      start_period: 180s
+      interval: 15s
+      timeout: 10s
+      retries: 60
+      start_period: 360s
 
   inventory-service:
     build:
@@ -386,7 +398,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8083
-      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m -XX:+UseG1GC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx320m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -Dspring.jmx.enabled=false
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
@@ -401,15 +413,17 @@ services:
       REDIS_PORT: 6379
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/shopscale
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/shopscale/protocol/openid-connect/certs
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
-    mem_limit: 1g
+    mem_limit: 576m
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health/readiness > /dev/null || exit 1"]
-      interval: 45s
-      timeout: 30s
-      retries: 40
-      start_period: 180s
+      interval: 15s
+      timeout: 10s
+      retries: 60
+      start_period: 360s
 
   notification-service:
     build:
@@ -439,7 +453,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8084
-      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m -XX:+UseG1GC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx320m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -Dspring.jmx.enabled=false
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
@@ -454,17 +468,19 @@ services:
       REDIS_PORT: 6379
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/shopscale
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/shopscale/protocol/openid-connect/certs
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
-    mem_limit: 1g
+    mem_limit: 576m
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health/readiness > /dev/null || exit 1"]
-      interval: 45s
-      timeout: 30s
-      retries: 40
-      start_period: 180s
+      interval: 15s
+      timeout: 10s
+      retries: 60
+      start_period: 360s
 
   price-service:
     mem_limit: 768m
@@ -489,7 +505,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8085
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms64m -Xmx256m -XX:+UseSerialGC -XX:+UseStringDeduplication
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
@@ -497,6 +513,8 @@ services:
       REDIS_PORT: 6379
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/shopscale
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/shopscale/protocol/openid-connect/certs
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
     healthcheck:
@@ -529,13 +547,15 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8086
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms64m -Xmx256m -XX:+UseSerialGC -XX:+UseStringDeduplication
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
       EUREKA_HOST: discovery-service
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/shopscale
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/shopscale/protocol/openid-connect/certs
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
     healthcheck:
