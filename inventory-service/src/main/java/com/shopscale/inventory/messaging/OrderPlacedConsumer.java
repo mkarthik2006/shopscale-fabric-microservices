@@ -68,7 +68,7 @@ public class OrderPlacedConsumer {
         try {
             Map<String, InventoryEntity> inventoryMap = new HashMap<>();
 
-            // ✅ STEP 1: VALIDATE ALL ITEMS (NO PARTIAL UPDATE)
+
             for (OrderPlacedEvent.Item item : event.items()) {
 
                 InventoryEntity inv = inventoryRepository.findById(item.sku())
@@ -83,7 +83,7 @@ public class OrderPlacedConsumer {
                 inventoryMap.put(item.sku(), inv);
             }
 
-            // ✅ STEP 2: APPLY STOCK DEDUCTION
+
             for (OrderPlacedEvent.Item item : event.items()) {
                 InventoryEntity inv = inventoryMap.get(item.sku());
                 inv.setStock(inv.getStock() - item.quantity());
@@ -97,7 +97,7 @@ public class OrderPlacedConsumer {
         } catch (Exception e) {
             log.error("Inventory processing failed with transient/system error | orderId={} | eventId={}",
                     event.orderId(), event.eventId(), e);
-            // Do not mark inbox as processed on transient failures. Re-throw to allow Kafka retries/DLQ.
+
             throw e;
         }
     }

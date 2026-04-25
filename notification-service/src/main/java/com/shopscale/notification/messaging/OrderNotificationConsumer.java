@@ -65,7 +65,7 @@ public class OrderNotificationConsumer {
 
         } catch (Exception e) {
             log.error("Failed to send email for order {}", event.orderId(), e);
-            // Re-throw so Kafka error handler can apply retry / DLT policy.
+
             throw new RuntimeException("Notification send failed for order " + event.orderId(), e);
         }
     }

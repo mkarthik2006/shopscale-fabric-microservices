@@ -29,9 +29,9 @@ public class OutboxPublisher {
     private final OrderOutboxMapper outboxMapper;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ExecutorService executorService;
-    // Self-reference via ObjectProvider so @Transactional on publishSingleEvent
-    // is actually honored when invoked from the scheduler -> executor lambda.
-    // A direct `this.publishSingleEvent(...)` call would bypass Spring's proxy.
+
+
+
     private final ObjectProvider<OutboxPublisher> selfProvider;
 
     @Value("${app.kafka.topic.order-placed:order.placed}")

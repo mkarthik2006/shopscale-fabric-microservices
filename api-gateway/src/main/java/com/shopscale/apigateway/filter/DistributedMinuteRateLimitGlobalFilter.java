@@ -44,12 +44,12 @@ public class DistributedMinuteRateLimitGlobalFilter implements GlobalFilter, Ord
 
         String path = exchange.getRequest().getPath().value();
 
-        // Skip internal endpoints
+
         if (path.startsWith("/actuator/") || path.startsWith("/auth/") || path.startsWith("/fallback/")) {
             return chain.filter(exchange);
         }
 
-        // Apply only for API calls
+
         if (!path.startsWith("/api/")) {
             return chain.filter(exchange);
         }
@@ -58,7 +58,7 @@ public class DistributedMinuteRateLimitGlobalFilter implements GlobalFilter, Ord
         String clientKey = "ip:" + clientIpResolver.resolveClientIp(exchange.getRequest());
         String redisKey = KEY_PREFIX + minuteBucket + ":" + clientKey;
 
-        // 🔍 TRACE LOG (ENTRY)
+
         log.info("Incoming request | path={} ip={} traceId={} spanId={}",
                 path,
                 clientKey,
@@ -76,7 +76,7 @@ public class DistributedMinuteRateLimitGlobalFilter implements GlobalFilter, Ord
                 .flatMap(count -> {
                     if (count != null && count > MAX_REQUESTS_PER_MINUTE) {
 
-                        // 🚨 RATE LIMIT EXCEEDED LOG (AUDIT REQUIRED)
+
                         log.warn("Rate limit exceeded | path={} ip={} count={} traceId={} spanId={}",
                                 path,
                                 clientKey,

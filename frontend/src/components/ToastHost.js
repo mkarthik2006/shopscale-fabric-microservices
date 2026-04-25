@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { subscribeToToasts } from '../utils/toast';
+import Icon from './Icon';
 
 function ToastHost() {
   const [toasts, setToasts] = useState([]);
@@ -20,8 +21,12 @@ function ToastHost() {
         <div
           key={toast.id}
           className={`toast-item ${toast.type === 'error' ? 'toast-error' : 'toast-success'}`}
+          role={toast.type === 'error' ? 'alert' : 'status'}
         >
-          {toast.message}
+          <span className="toast-item__icon">
+            <Icon name={toast.type === 'error' ? 'warning' : 'check'} size={16} />
+          </span>
+          <span>{toast.message}</span>
         </div>
       ))}
     </div>

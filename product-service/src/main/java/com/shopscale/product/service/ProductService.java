@@ -24,13 +24,13 @@ public class ProductService {
         this.repo = repo;
     }
 
-    // ✅ ENTITY FETCH (INTERNAL USE)
+
     public List<Product> getAll() {
         log.debug("Fetching all products (entity)");
         return repo.findAll();
     }
 
-    // ✅ DTO FETCH (API OPTIMIZED)
+
     public List<ProductDTO> getAllDTO() {
         log.debug("Fetching all products (DTO)");
 
@@ -40,7 +40,7 @@ public class ProductService {
                 .collect(Collectors.toList());
     }
 
-    // ✅ SINGLE FETCH WITH ERROR HANDLING
+
     public Product getById(String id) {
         log.debug("Fetching product by id={}", id);
 
@@ -51,7 +51,7 @@ public class ProductService {
         return mapToDTO(getById(id));
     }
 
-    // ✅ CREATE
+
     public Product create(Product product) {
         log.info("Creating product sku={} name={}", product.getSku(), product.getName());
         return repo.save(product);
@@ -67,7 +67,7 @@ public class ProductService {
         return mapToDTO(create(product));
     }
 
-    // ✅ UPDATE (partial-update safe: only overwrite fields the caller supplied)
+
     public Product update(String id, Product req) {
         log.info("Updating product id={}", id);
 
@@ -93,13 +93,13 @@ public class ProductService {
         return mapToDTO(update(id, product));
     }
 
-    // ✅ DELETE
+
     public void delete(String id) {
         log.warn("Deleting product id={}", id);
         repo.deleteById(id);
     }
 
-    // ✅ CENTRALIZED DTO MAPPER
+
     private ProductDTO mapToDTO(Product p) {
         return new ProductDTO(
                 p.getId(),

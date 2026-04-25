@@ -12,7 +12,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, UUID> {
     
   List<OrderEntity> findByUserId(String userId);
 
-  // ✅ STRICT RULE: DTO Projection via @Query
+
   @Query("SELECT new com.shopscale.order.dto.OrderResponseDto(o.id, o.status, o.userId) FROM OrderEntity o WHERE o.userId = :userId")
   List<OrderResponseDto> findOrderSummariesByUser(@Param("userId") String userId);
 }

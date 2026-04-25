@@ -13,7 +13,7 @@ public class ProcessedEventEntity {
     @Id
     private UUID eventId;
     @Column(nullable = false)
-    // Canonical values enforced by DB constraints: PROCESSED, FAILED, RETRYING.
+
     private String status;
     @Column(nullable = false)
     private Instant processedAt;

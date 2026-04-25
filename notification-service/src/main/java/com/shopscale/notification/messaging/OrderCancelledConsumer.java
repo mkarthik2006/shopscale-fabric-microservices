@@ -67,7 +67,7 @@ public class OrderCancelledConsumer {
             log.info("Cancellation email sent for order {}", event.orderId());
         } catch (Exception e) {
             log.error("Failed to send cancellation email for order {}", event.orderId(), e);
-            // Re-throw so Kafka error handler can apply retry / DLT policy.
+
             throw new RuntimeException("Cancellation notification failed for order " + event.orderId(), e);
         }
     }

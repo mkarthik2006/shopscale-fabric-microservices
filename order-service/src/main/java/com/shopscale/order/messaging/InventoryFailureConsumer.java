@@ -47,7 +47,7 @@ public class InventoryFailureConsumer {
 
         Optional<OrderEntity> orderOpt = orderRepository.findById(event.orderId());
 
-        // ✅ Handle missing order (fault tolerance)
+
         if (orderOpt.isEmpty()) {
             log.error("Order {} not found for inventory failure event", event.orderId());
             return;
@@ -55,22 +55,22 @@ public class InventoryFailureConsumer {
 
         OrderEntity order = orderOpt.get();
 
-        // ✅ IDEMPOTENCY GUARD (critical for Kafka at-least-once)
+
         if ("CANCELLED".equals(order.getStatus())) {
             log.warn("Duplicate event detected for order {}, skipping", order.getId());
             return;
         }
 
-        // ✅ BUSINESS RULE
+
         if ("PLACED".equals(order.getStatus())) {
 
             order.setStatus("CANCELLED");
             orderRepository.save(order);
 
-            // ✅ Build compensation event
+
             OrderCancelledEvent cancelledEvent = buildCompensationEvent(order, event.reason());
 
-            // Persist cancellation event into outbox and publish asynchronously via OutboxPublisher.
+
             OutboxEventEntity outboxEvent = new OutboxEventEntity();
             outboxEvent.setAggregateType("ORDER");
             outboxEvent.setAggregateId(order.getId());

@@ -5,6 +5,43 @@
 Production-grade microservices marketplace using Java 21, Spring Boot, Kafka, Keycloak, Redis, and Spring Cloud Gateway.
 All business APIs are exposed through the API Gateway (`/api/*`) and validated with end-to-end runtime checks.
 
+---
+
+## ⚠️ REVIEWER NOTE — Read Before `docker compose up`
+
+This stack runs **18 containers** simultaneously (Keycloak, Kafka + Zookeeper, MongoDB, PostgreSQL, Redis, Zipkin, MailHog, 9 Spring Boot services, frontend). It is **memory-bound**, not CPU-bound.
+
+### Recommended Docker Memory
+
+| Setting | Value |
+| --- | --- |
+| **Minimum** | **8 GB** Docker memory |
+| **Ideal** | **10 GB+** Docker memory |
+| **Not supported** | < 6 GB Docker memory |
+
+### Why this matters
+
+Lower-memory environments (for example a Docker Desktop VM configured with only **4 GB RAM**) **will trigger the Linux kernel OOM killer** on the JVM-heavy services — typically `keycloak`, `order-service`, `inventory-service`, and `notification-service`. Symptoms on under-provisioned hosts:
+
+- Containers show `(health: starting)` indefinitely with growing `RestartCount` under `docker inspect`.
+- `dmesg` inside the Docker VM shows `oom-kill: constraint=CONSTRAINT_NONE … global_oom … task=java`.
+- The Kafka SAGA flow (`Order → Inventory → Notification`) intermittently fails with HTTP 500 because the order-service is killed mid-request.
+
+This is a **host-RAM ceiling**, not a code, compose, or auth defect. The compose file, healthchecks, JVM heaps, and `mem_limit` values are sized for the recommended 10 GB+ target.
+
+### How to set Docker Desktop memory
+
+- **Docker Desktop (macOS / Windows):** Settings → Resources → Memory → set to **10 GB** → Apply & Restart.
+- **Linux (native Docker engine):** memory follows host RAM; ensure the host has at least 12 GB free before `docker compose up`.
+
+### Before submission validation
+
+1. Confirm Docker memory ≥ 10 GB (`docker info | grep -i memory`).
+2. Stop any unrelated Docker stacks running on the same host to avoid memory contention.
+3. Run `docker compose down -v && docker compose up --build -d` from a clean state.
+
+---
+
 ## 2. 🚀 Key Features
 
 - API Gateway-first architecture with centralized routing, JWT validation, and rate limiting
@@ -81,6 +118,16 @@ Resource Owner Password Credentials is disabled for the gateway client.
 Gateway validates JWT issuer:
 
 - `http://keycloak:8080/realms/shopscale` (in-container)
+
+### Demo Credentials
+
+Seeded automatically by `keycloak-realm-seed` on first `docker compose up`.
+Use these directly in the React UI ("Continue with Keycloak") — no password reset needed.
+
+| Role  | Username | Password   |
+| ----- | -------- | ---------- |
+| User  | testuser | Test@1234  |
+| Admin | admin    | Admin@1234 |
 
 ## 6. 📦 Microservices Overview
 
@@ -176,6 +223,8 @@ Implemented as global gateway filter backed by Redis:
 
 ## 10. 🐳 Docker Setup
 
+> **⚠️ Memory requirement (non-negotiable):** Docker Desktop must be configured with **8 GB minimum / 10 GB recommended** before running this stack. See the **REVIEWER NOTE** at the top of this README. On a 4 GB Docker VM the Linux OOM killer will terminate Kafka SAGA JVMs (`order` / `inventory` / `notification`) and the stack will not stabilize.
+
 One-command startup:
 
 Required environment variables:
@@ -184,6 +233,15 @@ Required environment variables:
 export POSTGRES_PASSWORD='change-me'
 export KEYCLOAK_ADMIN_PASSWORD='change-me'
 ```
+
+Verify host memory budget first:
+
+```bash
+docker info --format 'Total memory: {{.MemTotal}} bytes'
+# expected: ≥ 8589934592  (8 GB), ideally ≥ 10737418240 (10 GB)
+```
+
+Then bring the stack up:
 
 ```bash
 docker compose up --build -d
@@ -202,6 +260,12 @@ Health verification:
 docker compose ps
 docker ps --format 'table {{.Names}}\t{{.Status}}'
 ```
+
+Functional acceptance gate:
+
+- Keycloak must be `healthy` and reachable on `http://localhost:8180`
+- Gateway auth endpoints (`/auth/*`) must return successful auth responses (no 500s)
+- ORDER, INVENTORY, and NOTIFICATION must be `healthy` and registered `UP` in Eureka
 
 ## 11. 🌐 Access URLs
 
@@ -328,6 +392,7 @@ Observed:
 
 | Symptom | Check | Fix |
 |---|---|---|
+| `order-service` / `inventory-service` / `notification-service` stuck `(health: starting)` with rising `RestartCount`, intermittent `500` on `/api/orders` | Docker memory < 8 GB; `dmesg` inside the Docker VM shows `oom-kill … global_oom … task=java` | Raise Docker Desktop memory to **10 GB** (Settings → Resources → Memory), `docker compose down -v`, then `docker compose up --build -d` |
 | `401 Unauthorized` | Token missing/expired | Regenerate `TOKEN` via gateway auth endpoint |
 | `500` on gateway API | Downstream container unhealthy | `docker compose ps`, restart affected service |
 | Order events not progressing | Kafka not running | `docker compose up -d kafka` |

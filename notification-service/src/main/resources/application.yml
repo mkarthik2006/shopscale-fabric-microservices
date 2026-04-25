@@ -104,7 +104,9 @@ management:
 
   endpoint:
     health:
-      show-details: when_authorized
+      probes:
+        enabled: true
+      show-details: always
 
   tracing:
     sampling:

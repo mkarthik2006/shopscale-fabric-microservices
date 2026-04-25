@@ -20,7 +20,7 @@ public class ProductController {
     this.service = service;
   }
 
-  // ✅ USE DTO (Optimized API Response)
+
   @GetMapping
   public List<ProductDTO> all() {
     return service.getAllDTO();
@@ -43,7 +43,7 @@ public class ProductController {
     return service.update(id, request);
   }
 
-  // ✅ ADMIN DELETE (SECURE)
+
   @PreAuthorize("hasRole('ADMIN')")
   @DeleteMapping("/{id}")
   public void delete(@PathVariable String id) {

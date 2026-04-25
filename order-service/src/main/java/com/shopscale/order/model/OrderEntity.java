@@ -49,7 +49,7 @@ public class OrderEntity {
     if (createdAt == null) createdAt = Instant.now();
   }
 
-  // Getters and Setters...
+
   public UUID getId() { return id; }
   public void setId(UUID id) { this.id = id; }
   public String getUserId() { return userId; }

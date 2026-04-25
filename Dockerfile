@@ -2,9 +2,9 @@
 FROM maven:3.9.8-eclipse-temurin-21 AS build
 
 WORKDIR /workspace
+ARG SERVICE_NAME
 
-# STEP 1: Copy ALL pom files (important for multi-module caching)
-COPY pom.xml .
+COPY pom.xml ./
 COPY shopscale-common/pom.xml shopscale-common/pom.xml
 COPY shopscale-oidc/pom.xml shopscale-oidc/pom.xml
 COPY config-server/pom.xml config-server/pom.xml
@@ -17,33 +17,24 @@ COPY notification-service/pom.xml notification-service/pom.xml
 COPY price-service/pom.xml price-service/pom.xml
 COPY cart-service/pom.xml cart-service/pom.xml
 
-# STEP 2: Download ALL dependencies (multi-module safe)
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -q -B -e -C dependency:go-offline
+    mvn -q -B -e -DskipTests -pl "${SERVICE_NAME}" -am dependency:go-offline
 
-# STEP 3: Copy full project
 COPY . .
 
-# STEP 4: Build specific service
-ARG SERVICE_NAME
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -q -DskipTests clean package -pl ${SERVICE_NAME} -am
+    mvn -q -B -e -DskipTests -pl "${SERVICE_NAME}" -am package
 
 # ---------- RUN STAGE ----------
 FROM eclipse-temurin:21-jre
 
-# ENTERPRISE FIX: Install curl for Docker healthchecks
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
-
 RUN addgroup --system spring && adduser --system --ingroup spring spring
 
 WORKDIR /app
-
 ARG SERVICE_NAME
-
 COPY --from=build /workspace/${SERVICE_NAME}/target/*.jar app.jar
-
 RUN chown spring:spring app.jar
-USER spring:spring
 
+USER spring:spring
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
