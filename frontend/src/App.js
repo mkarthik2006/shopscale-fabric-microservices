@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Link, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import ProductsPage from './pages/ProductsPage';
 import CartPage from './pages/CartPage';
 import OrdersPage from './pages/OrdersPage';
@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import CreateProductPage from './pages/CreateProductPage';
 import InventoryPage from './pages/InventoryPage';
 import ToastHost from './components/ToastHost';
+import Layout from './components/Layout';
 import { getTokenClaims, hasValidSession } from './services/api';
 
 function ProtectedRoute({ children }) {
@@ -29,32 +30,67 @@ function RoleRoute({ children, allowedRoles }) {
 }
 
 function App() {
-  const roles = getTokenClaims()?.realm_access?.roles || [];
+  const location = useLocation();
+  const claims = getTokenClaims();
+  const roles = claims?.realm_access?.roles || [];
   const isAdmin = roles.includes('ADMIN') || roles.includes('ROLE_ADMIN');
+  const isAuthenticated = hasValidSession();
+  const user = claims
+    ? {
+        username: claims.preferred_username || claims.sub,
+        name: claims.name || claims.preferred_username || claims.sub,
+      }
+    : null;
+
+  const isAuthRoute = location.pathname === '/login';
 
   return (
-    <div className="app-shell">
-      <nav className="top-nav">
-        <strong className="brand">ShopScale Fabric</strong>
-        <Link to="/" className="nav-link">Products</Link>
-        {isAdmin && <Link to="/products/new" className="nav-link">Create Product</Link>}
-        <Link to="/cart" className="nav-link">Cart</Link>
-        <Link to="/orders" className="nav-link">Orders</Link>
-        {hasValidSession() && <Link to="/inventory" className="nav-link">Inventory</Link>}
-        <Link to="/login" className="nav-link">Login</Link>
-      </nav>
-      <main className="container">
+    <>
+      <Layout
+        isAuthenticated={isAuthenticated}
+        isAdmin={isAdmin}
+        user={user}
+        isAuthRoute={isAuthRoute}
+      >
         <Routes>
           <Route path="/" element={<ProductsPage />} />
-          <Route path="/products/new" element={<RoleRoute allowedRoles={['ADMIN', 'ROLE_ADMIN']}><CreateProductPage /></RoleRoute>} />
-          <Route path="/cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
-          <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
-          <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
+          <Route
+            path="/products/new"
+            element={
+              <RoleRoute allowedRoles={['ADMIN', 'ROLE_ADMIN']}>
+                <CreateProductPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/cart"
+            element={
+              <ProtectedRoute>
+                <CartPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <ProtectedRoute>
+                <OrdersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <ProtectedRoute>
+                <InventoryPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/login" element={<LoginPage />} />
         </Routes>
-      </main>
+      </Layout>
       <ToastHost />
-    </div>
+    </>
   );
 }
 
