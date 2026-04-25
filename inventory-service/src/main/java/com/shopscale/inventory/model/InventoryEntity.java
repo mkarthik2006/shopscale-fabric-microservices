@@ -20,9 +20,9 @@ public class InventoryEntity {
   @Column(nullable = false)
   private Integer stock;
 
-  // Optimistic locking — prevents lost updates when concurrent OrderPlaced
-  // events for the same SKU are processed in parallel by multi-partition
-  // Kafka listeners (PROJECT_RULES.md §1 concurrency correctness).
+
+
+
   @Version
   private Long version;
 

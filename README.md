@@ -187,6 +187,10 @@ export KEYCLOAK_ADMIN_PASSWORD='change-me'
 
 ```bash
 docker compose up --build -d
+
+# minimum Docker Desktop memory for stable full-stack boot
+# (gateway + keycloak + kafka + JVM services)
+# required: 10 GB
 ```
 
 Startup order is enforced with health checks and `depends_on` conditions:
@@ -202,6 +206,12 @@ Health verification:
 docker compose ps
 docker ps --format 'table {{.Names}}\t{{.Status}}'
 ```
+
+Functional acceptance gate:
+
+- Keycloak must be `healthy` and reachable on `http://localhost:8180`
+- Gateway auth endpoints (`/auth/*`) must return successful auth responses (no 500s)
+- ORDER, INVENTORY, and NOTIFICATION must be `healthy` and registered `UP` in Eureka
 
 ## 11. 🌐 Access URLs
 

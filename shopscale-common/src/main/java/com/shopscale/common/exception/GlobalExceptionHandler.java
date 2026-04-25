@@ -42,8 +42,8 @@ public class GlobalExceptionHandler {
                 .body(StandardResponse.failure(ex.getMessage(), 404));
     }
 
-    // Maps Optional#orElseThrow() and similar lookups to a proper 404 instead
-    // of leaking as a generic 500 via the catch-all handler.
+
+
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<StandardResponse<Object>> handleNoSuchElement(NoSuchElementException ex) {
         String message = ex.getMessage() != null ? ex.getMessage() : "Resource not found";

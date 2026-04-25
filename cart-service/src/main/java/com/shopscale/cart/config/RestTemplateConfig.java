@@ -25,37 +25,37 @@ public class RestTemplateConfig {
     @LoadBalanced
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
 
-        // Connection Config (replaces deprecated setValidateAfterInactivity + setConnectTimeout)
+
         ConnectionConfig connectionConfig = ConnectionConfig.custom()
                 .setConnectTimeout(Timeout.ofSeconds(2))
                 .setValidateAfterInactivity(Timeout.ofSeconds(5))
                 .build();
 
-        // Connection Pool Manager
+
         PoolingHttpClientConnectionManager connectionManager =
                 new PoolingHttpClientConnectionManager();
 
-        connectionManager.setMaxTotal(100);              // Max total connections
-        connectionManager.setDefaultMaxPerRoute(20);     // Per service connections
+        connectionManager.setMaxTotal(100);
+        connectionManager.setDefaultMaxPerRoute(20);
         connectionManager.setDefaultConnectionConfig(connectionConfig);
 
-        // Fail-Fast Timeout Configuration (only response timeout here now)
+
         RequestConfig requestConfig = RequestConfig.custom()
-                .setResponseTimeout(Timeout.ofSeconds(4))  // Read timeout
+                .setResponseTimeout(Timeout.ofSeconds(4))
                 .build();
 
-        // HTTP Client with Eviction Strategy
+
         CloseableHttpClient httpClient = HttpClients.custom()
                 .setConnectionManager(connectionManager)
                 .evictIdleConnections(Timeout.ofSeconds(30))
                 .setDefaultRequestConfig(requestConfig)
                 .build();
 
-        // Request Factory
+
         HttpComponentsClientHttpRequestFactory factory =
                 new HttpComponentsClientHttpRequestFactory(httpClient);
 
-        // Build RestTemplate (Retains Spring Boot auto-config: tracing, metrics)
+
         return builder
                 .requestFactory(() -> factory)
                 .additionalInterceptors((request, body, execution) -> {

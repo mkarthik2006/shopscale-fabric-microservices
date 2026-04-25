@@ -2,19 +2,24 @@ services:
   # ---------------- INFRASTRUCTURE ----------------
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok,stat,srvr"
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx256m"
     ports:
       - "2181:2181"
+    mem_limit: 512m
     healthcheck:
       test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep -q imok"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+      interval: 20s
+      timeout: 15s
+      retries: 20
+      start_period: 60s
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
+    restart: unless-stopped
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -29,28 +34,34 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+    mem_limit: 1g
     healthcheck:
       test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1 || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 20
-      start_period: 30s
+      interval: 30s
+      timeout: 20s
+      retries: 30
+      start_period: 150s
 
   mongodb:
     image: mongo:7
+    restart: unless-stopped
     ports:
       - "127.0.0.1:${MONGO_HOST_PORT:-27017}:27017"
     volumes:
       - mongo_data:/data/db
+    mem_limit: 768m
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-      start_period: 20s
+      interval: 20s
+      timeout: 20s
+      retries: 20
+      start_period: 90s
 
   postgres:
     image: postgres:16
+    restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=300"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-shopscale}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shopscale-dev-password}
@@ -60,58 +71,102 @@ services:
     volumes:
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
       - postgres_data:/var/lib/postgresql/data
+    mem_limit: 768m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shopscale} -d ${POSTGRES_DB:-orderdb}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
 
   redis:
     image: redis:7
+    restart: unless-stopped
     ports:
       - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
+    mem_limit: 384m
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
 
   zipkin:
     image: openzipkin/zipkin:3
+    restart: unless-stopped
     ports:
       - "9411:9411"
+    mem_limit: 512m
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9411/health | grep -q UP"]
       interval: 15s
       timeout: 10s
       retries: 15
+      start_period: 40s
 
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0
-    command: start-dev --import-realm --health-enabled=true
+    build:
+      context: ./keycloak
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: start --optimized --http-enabled=true --hostname-strict=false
     environment:
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-shopscale-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-shopscale-admin-password}
-      JAVA_OPTS_KC_HEAP: "-Xms256m -Xmx512m"
+      KEYCLOAK_ADMIN: shopscale-admin
+      KEYCLOAK_ADMIN_PASSWORD: shopscale-admin-password
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_DATABASE: keycloakdb
+      KC_DB_USERNAME: ${POSTGRES_USER:-shopscale}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-shopscale-dev-password}
+      KC_DB_POOL_INITIAL_SIZE: 5
+      KC_DB_POOL_MIN_SIZE: 5
+      KC_DB_POOL_MAX_SIZE: 15
+      JAVA_OPTS_KC_HEAP: "-Xms128m -Xmx256m -XX:MaxMetaspaceSize=192m"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
     ports:
       - "8180:8080"
-    volumes:
-      - ./keycloak/shopscale-realm.json:/opt/keycloak/data/import/shopscale-realm.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 1536m
+    stop_grace_period: 60s
     healthcheck:
-      test: ["CMD-SHELL", "/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user ${KEYCLOAK_ADMIN:-shopscale-admin} --password ${KEYCLOAK_ADMIN_PASSWORD:-shopscale-admin-password} > /dev/null 2>&1 || exit 1"]
-      interval: 20s
-      timeout: 10s
+      test: ["CMD-SHELL", "bash -ec 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; IFS=$$'\\r' read -r status <&3; [[ \"$$status\" == *\" 200 \"* ]]'"]
+      interval: 30s
+      timeout: 20s
       retries: 20
-      start_period: 60s
+      start_period: 300s
+
+  keycloak-realm-seed:
+    image: shopscale-fabric-keycloak
+    restart: "no"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_ADMIN: shopscale-admin
+      KEYCLOAK_ADMIN_PASSWORD: shopscale-admin-password
+    volumes:
+      - ./keycloak/shopscale-realm.json:/realm/shopscale-realm.json:ro
+    entrypoint:
+      - /bin/bash
+      - -ec
+      - |
+        /opt/keycloak/bin/kcadm.sh config credentials --server http://keycloak:8080 --realm master --user "$$KEYCLOAK_ADMIN" --password "$$KEYCLOAK_ADMIN_PASSWORD"
+        /opt/keycloak/bin/kcadm.sh get realms/shopscale >/dev/null 2>&1 || /opt/keycloak/bin/kcadm.sh create realms -f /realm/shopscale-realm.json
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
     platform: linux/amd64
+    restart: unless-stopped
     ports:
       - "1025:1025"
       - "8025:8025"
+    mem_limit: 256m
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8025/api/v2/messages > /dev/null || exit 1"]
       interval: 15s
@@ -127,19 +182,22 @@ services:
         SERVICE_NAME: config-server
     ports:
       - "8888:8888"
+    restart: unless-stopped
     volumes:
       - ./config-repo:/config-repo
     environment:
       SERVER_PORT: 8888
-      JAVA_TOOL_OPTIONS: -Xms48m -Xmx96m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseSerialGC
       CONFIG_REPO_PATH: file:/config-repo
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+    mem_limit: 512m
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8888/actuator/health > /dev/null || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 15
-      start_period: 40s
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8888/actuator/health/readiness > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 20s
+      retries: 25
+      start_period: 120s
 
   discovery-service:
     build:
@@ -149,21 +207,22 @@ services:
         SERVICE_NAME: discovery-service
     ports:
       - "8761:8761"
-    depends_on:
-      config-server:
-        condition: service_healthy
+    restart: unless-stopped
     environment:
       SERVER_PORT: 8761
-      JAVA_TOOL_OPTIONS: -Xms48m -Xmx96m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseSerialGC
       EUREKA_HOST: discovery-service
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+      SPRING_CLOUD_CONFIG_FAIL_FAST: "false"
       CONFIG_SERVER_HOST: config-server
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+    mem_limit: 512m
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8761/actuator/health > /dev/null || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 20
-      start_period: 45s
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8761/actuator/health/readiness > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 20s
+      retries: 25
+      start_period: 120s
 
   # ---------------- BUSINESS SERVICES ----------------
   api-gateway:
@@ -180,6 +239,8 @@ services:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+      keycloak-realm-seed:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       keycloak:
@@ -188,7 +249,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8080
-      JAVA_TOOL_OPTIONS: -Xms48m -Xmx96m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseG1GC
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
@@ -199,14 +260,17 @@ services:
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+    mem_limit: 768m
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health > /dev/null || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health/readiness > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 20s
+      retries: 25
+      start_period: 300s
 
   product-service:
+    mem_limit: 768m
     build:
       context: .
       dockerfile: Dockerfile
@@ -237,12 +301,13 @@ services:
       SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/productdb
       MONGODB_URI: mongodb://mongodb:27017/productdb
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health > /dev/null || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health/readiness > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 20s
+      retries: 25
+      start_period: 180s
 
   order-service:
     build:
@@ -270,7 +335,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8082
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m -XX:+UseG1GC
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
@@ -278,6 +343,7 @@ services:
       DB_NAME: orderdb
       DB_USER: ${POSTGRES_USER:-shopscale}
       DB_PASS: ${POSTGRES_PASSWORD:-shopscale-dev-password}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
@@ -285,8 +351,10 @@ services:
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+    mem_limit: 1g
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health/readiness > /dev/null || exit 1"]
       interval: 45s
       timeout: 30s
       retries: 40
@@ -318,7 +386,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8083
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m -XX:+UseG1GC
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
@@ -326,6 +394,7 @@ services:
       DB_NAME: inventorydb
       DB_USER: ${POSTGRES_USER:-shopscale}
       DB_PASS: ${POSTGRES_PASSWORD:-shopscale-dev-password}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
@@ -333,8 +402,10 @@ services:
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+    mem_limit: 1g
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health/readiness > /dev/null || exit 1"]
       interval: 45s
       timeout: 30s
       retries: 40
@@ -368,7 +439,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8084
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m -XX:+UseG1GC
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
@@ -376,6 +447,7 @@ services:
       DB_NAME: notificationdb
       DB_USER: ${POSTGRES_USER:-shopscale}
       DB_PASS: ${POSTGRES_PASSWORD:-shopscale-dev-password}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
@@ -385,14 +457,17 @@ services:
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+    mem_limit: 1g
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health/readiness > /dev/null || exit 1"]
       interval: 45s
       timeout: 30s
       retries: 40
       start_period: 180s
 
   price-service:
+    mem_limit: 768m
     build:
       context: .
       dockerfile: Dockerfile
@@ -414,7 +489,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8085
-      JAVA_TOOL_OPTIONS: -Xms48m -Xmx96m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseSerialGC
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
@@ -423,14 +498,16 @@ services:
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8085/actuator/health > /dev/null || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8085/actuator/health/readiness > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 20s
+      retries: 25
+      start_period: 180s
 
   cart-service:
+    mem_limit: 768m
     build:
       context: .
       dockerfile: Dockerfile
@@ -452,7 +529,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8086
-      JAVA_TOOL_OPTIONS: -Xms48m -Xmx96m -XX:+UseSerialGC
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseSerialGC
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
       CONFIG_SERVER_HOST: config-server
@@ -460,25 +537,27 @@ services:
       KEYCLOAK_HOST: keycloak
       KEYCLOAK_PORT: 8080
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8086/actuator/health > /dev/null || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8086/actuator/health/readiness > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 20s
+      retries: 25
+      start_period: 180s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - "3000:8080"
     restart: unless-stopped
+    mem_limit: 256m
     depends_on:
       api-gateway:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/ || exit 1"]
       interval: 20s
       timeout: 10s
       retries: 10

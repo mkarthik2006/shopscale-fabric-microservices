@@ -36,34 +36,34 @@ public class SecurityConfig {
                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; frame-ancestors 'none'"))
                 )
 
-                // ✅ CORS (KEEP)
+
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .authorizeExchange(ex -> ex
 
-                        // ✅ HEALTH + INFO
+
                         .pathMatchers("/actuator/health/**", "/actuator/info/**").permitAll()
 
-                        // ✅ FALLBACK (REQUIRED for CircuitBreaker)
+
                         .pathMatchers("/fallback/**").permitAll()
 
-                        // ✅ KEYCLOAK AUTH FLOW
+
                         .pathMatchers("/auth/**").permitAll()
 
-                        // ✅ ADMIN SECURITY
+
                         .pathMatchers("/admin/**").hasRole("ADMIN")
 
-                        // ✅ ACTUATOR (ADMIN ONLY)
+
                         .pathMatchers("/actuator/**").hasRole("ADMIN")
 
-                        // ✅ CORS PREFLIGHT
+
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Require auth for product reads so auth failures are explicit (401/403),
-                        // instead of leaking upstream availability semantics.
+
+
                         .pathMatchers(HttpMethod.GET, "/api/products", "/api/products/**").authenticated()
 
-                        // ✅ SECURED BUSINESS APIs
+
                         .pathMatchers(
                                 "/api/orders", "/api/orders/**",
                                 "/api/inventory", "/api/inventory/**",
@@ -71,11 +71,11 @@ public class SecurityConfig {
                                 "/api/prices", "/api/prices/**"
                         ).authenticated()
 
-                        // ✅ DEFAULT RULE
+
                         .anyExchange().authenticated()
                 )
 
-                // ✅ JWT (Keycloak integration)
+
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(
                         new ReactiveJwtAuthenticationConverterAdapter(
                                 com.shopscale.oidc.OAuth2ResourceServerSupport.keycloakJwtAuthenticationConverter()
@@ -85,7 +85,7 @@ public class SecurityConfig {
                 .build();
     }
 
-    // ✅ CORS CONFIG (KEEP)
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();

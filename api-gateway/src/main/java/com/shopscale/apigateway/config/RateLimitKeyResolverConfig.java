@@ -26,7 +26,7 @@ public class RateLimitKeyResolverConfig {
                 .filter(p -> p instanceof Authentication)
                 .cast(Authentication.class)
 
-                // ✅ Only real authenticated users
+
                 .filter(auth -> auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken))
 
                 .map(Authentication::getName)

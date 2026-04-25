@@ -12,9 +12,9 @@ public class JwtHeaderForwardingFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        // Header mutation on reactive request is currently unstable in this stack and
-        // caused UnsupportedOperationException for authenticated routes. Keep this
-        // filter as a safe pass-through until explicit header propagation is reworked.
+
+
+
         return chain.filter(exchange);
     }
 
